@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { styles } from "./styles";
+import ManagerDashboard from "./mngr_dash";                    // added import
 
 function App() {
   const agents = [
     { id: "7b6fc435-1587-4405-980a-b738991e7961", name: "Kedar" },
-    { id: "REAL_UUID_2", name: "Agent 2" },
-    { id: "REAL_UUID_3", name: "Agent 3" },
-    { id: "REAL_UUID_4", name: "Agent 4" },
+    { id: "406df1b2-b360-426f-b2bb-18700752adba", name: "Nihal" },
+    { id: "PLACEHOLDER_UUID_3", name: "Agent 3" },
+    { id: "PLACEHOLDER_UUID_4", name: "Agent 4" }
   ];
 
   const monitorOptions = [
@@ -23,11 +25,14 @@ function App() {
     "Database Issue",
   ];
 
-  const API = "http://127.0.0.1:5000";
+  const API = "http://172.16.8.50:5000";  // Unified backend on port 5000
 
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId] = useState(null);
   const [triagedCount, setTriagedCount] = useState(0);
+
+  // manager toggle state
+  const [showManager, setShowManager] = useState(false);     // added state
 
   const [ticketInput, setTicketInput] = useState("");
   const [tickets, setTickets] = useState([]);
@@ -38,6 +43,8 @@ function App() {
 
   const [incidentStatus, setIncidentStatus] = useState("");
   const [adhocTask, setAdhocTask] = useState("");
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
 
   // ---------------------------
   // LOAD SESSION FROM LOCALSTORAGE ON MOUNT
@@ -74,10 +81,24 @@ function App() {
     const checkResponse = await fetch(`${API}/check-active-shift`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent_id: agent.id }),
+      body: JSON.stringify({ 
+        agent_id: agent.id,
+        agent_name: agent.name  // Send agent name for UUID generation
+      }),
     });
 
     const checkData = await checkResponse.json();
+    
+    // If backend generated a new UUID, show it to user
+    if (checkData.agent_id && checkData.agent_id !== agent.id) {
+      console.log("🆕 NEW UUID GENERATED!");
+      console.log(`📋 Copy this to your App.jsx agents array:`);
+      console.log(`{ id: "${checkData.agent_id}", name: "${agent.name}" }`);
+      alert(`New UUID generated for ${agent.name}!\n\nCheck browser console (F12) for the UUID to copy into your code.`);
+    }
+    
+    // Use the UUID from backend (either new or existing)
+    const agentUUID = checkData.agent_id || agent.id;
 
     let shiftData;
     if (checkData.has_active_shift) {
@@ -88,11 +109,11 @@ function App() {
       };
       alert("Resuming your active shift");
     } else {
-      // Create new shift
+      // Create new shift with the UUID
       const response = await fetch(`${API}/start-shift`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent_id: agent.id }),
+        body: JSON.stringify({ agent_id: agentUUID }),
       });
       shiftData = await response.json();
     }
@@ -245,18 +266,21 @@ function App() {
     const response = await fetch(`${API}/shift-summary/${shiftId}`);
     const summary = await response.json();
 
-    alert(`
-Shift Summary:
+    // Show summary screen instead of alert
+    setSummaryData(summary);
+    setShowSummary(true);
+  };
 
-Triaged: ${summary.triaged_count}
-Tickets: ${summary.ticket_count}
-Alerts: ${summary.alert_count}
-Ad-hoc Tasks: ${summary.adhoc_count}
-    `);
-
+  // ---------------------------
+  // CLOSE SUMMARY AND LOGOUT
+  // ---------------------------
+  const handleCloseSummary = () => {
     // Clear localStorage
     localStorage.removeItem("activeShift");
 
+    // Reset all state
+    setShowSummary(false);
+    setSummaryData(null);
     setSelectedAgent(null);
     setShiftId(null);
     setTriagedCount(0);
@@ -267,7 +291,29 @@ Ad-hoc Tasks: ${summary.adhoc_count}
 
   return (
     <div style={styles.container}>
-      {!selectedAgent ? (
+      {/* quick toggle to open manager dashboard */}
+      <button
+        onClick={() => setShowManager((s) => !s)}
+        style={{
+          position: "fixed",
+          top: 12,
+          right: 12,
+          zIndex: 9999,
+          padding: "8px 12px",
+          background: "#0ea5e9",
+          color: "white",
+          border: "none",
+          borderRadius: 6,
+          cursor: "pointer",
+        }}
+      >
+        {showManager ? "Close Manager" : "Open Manager"}
+      </button>
+
+      {showManager ? (
+        <ManagerDashboard />
+      ) : !selectedAgent ? (
+        // Login screen JSX
         <div style={styles.loginWrapper}>
           <div style={styles.loginCard}>
             <div style={styles.logoSection}>
@@ -304,7 +350,166 @@ Ad-hoc Tasks: ${summary.adhoc_count}
             </div>
           </div>
         </div>
+      ) : showSummary ? (
+        // Summary screen JSX
+        <div style={styles.summaryWrapper}>
+          <div style={styles.summaryContainer}>
+            <div style={styles.summaryHeader}>
+              <h1 style={styles.summaryTitle}>Shift Complete! 🎉</h1>
+              <p style={styles.summarySubtitle}>
+                Agent: {selectedAgent} | {new Date(summaryData.start_time).toLocaleString()} - {new Date(summaryData.end_time).toLocaleString()}
+              </p>
+
+              <div style={styles.summaryStats}>
+                <div style={styles.statCard}>
+                  <div style={styles.statValue}>{summaryData.triaged_count}</div>
+                  <div style={styles.statLabel}>Triaged</div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statValue}>{summaryData.ticket_count}</div>
+                  <div style={styles.statLabel}>Tickets</div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statValue}>{summaryData.alert_count}</div>
+                  <div style={styles.statLabel}>Alerts</div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statValue}>{summaryData.incident_count}</div>
+                  <div style={styles.statLabel}>Incidents</div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statValue}>{summaryData.adhoc_count}</div>
+                  <div style={styles.statLabel}>Ad-hoc Tasks</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tickets Section */}
+            {summaryData.tickets && summaryData.tickets.length > 0 && (
+              <div style={styles.summarySection}>
+                <h2 style={styles.sectionTitle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  Tickets Handled ({summaryData.tickets.length})
+                </h2>
+                <div style={styles.itemList}>
+                  {summaryData.tickets.map((ticket, index) => (
+                    <div key={index} style={styles.summaryItem}>
+                      <div style={styles.itemHeader}>
+                        <span style={styles.itemTitle}>#{ticket.number}</span>
+                        <span style={styles.itemTime}>{new Date(ticket.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      {ticket.description && (
+                        <div style={styles.itemDescription}>{ticket.description}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alerts Section */}
+            {summaryData.alerts && summaryData.alerts.length > 0 && (
+              <div style={styles.summarySection}>
+                <h2 style={styles.sectionTitle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Alerts Logged ({summaryData.alerts.length})
+                </h2>
+                <div style={styles.itemList}>
+                  {summaryData.alerts.map((alert, index) => (
+                    <div key={index} style={styles.summaryItem}>
+                      <div style={styles.itemHeader}>
+                        <span style={styles.itemTitle}>{alert.monitor} - {alert.type}</span>
+                        <span style={styles.itemTime}>{new Date(alert.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      {alert.comment && (
+                        <div style={styles.itemDescription}>{alert.comment}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Incidents Section */}
+            {summaryData.incidents && summaryData.incidents.length > 0 && (
+              <div style={styles.summarySection}>
+                <h2 style={styles.sectionTitle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  Incidents Reported ({summaryData.incidents.length})
+                </h2>
+                <div style={styles.itemList}>
+                  {summaryData.incidents.map((incident, index) => (
+                    <div key={index} style={styles.summaryItem}>
+                      <div style={styles.itemHeader}>
+                        <span style={styles.itemTitle}>Incident #{index + 1}</span>
+                        <span style={styles.itemTime}>{new Date(incident.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      <div style={styles.itemDescription}>{incident.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ad-hoc Tasks Section */}
+            {summaryData.adhoc_tasks && summaryData.adhoc_tasks.length > 0 && (
+              <div style={styles.summarySection}>
+                <h2 style={styles.sectionTitle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  </svg>
+                  Ad-hoc Tasks Completed ({summaryData.adhoc_tasks.length})
+                </h2>
+                <div style={styles.itemList}>
+                  {summaryData.adhoc_tasks.map((task, index) => (
+                    <div key={index} style={styles.summaryItem}>
+                      <div style={styles.itemHeader}>
+                        <span style={styles.itemTitle}>Task #{index + 1}</span>
+                        <span style={styles.itemTime}>{new Date(task.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      <div style={styles.itemDescription}>{task.task}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state if nothing was done */}
+            {!summaryData.tickets?.length && 
+             !summaryData.alerts?.length && 
+             !summaryData.incidents?.length && 
+             !summaryData.adhoc_tasks?.length && 
+             summaryData.triaged_count === 0 && (
+              <div style={styles.summarySection}>
+                <div style={styles.emptyState}>
+                  <p>No activities recorded during this shift.</p>
+                </div>
+              </div>
+            )}
+
+            <div style={styles.summaryActions}>
+              <button
+                style={styles.summaryButton}
+                onClick={handleCloseSummary}
+              >
+                Start New Shift
+              </button>
+            </div>
+          </div>
+        </div>
       ) : (
+        // Main shift dashboard JSX
         <div style={styles.mainLayout}>
           {/* Header */}
           <div style={styles.header}>
@@ -553,431 +758,5 @@ Ad-hoc Tasks: ${summary.adhoc_count}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    backgroundColor: "#f1f5f9",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-  },
-
-  // Login Screen Styles
-  loginWrapper: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "24px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-  },
-
-  loginCard: {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    padding: "48px",
-    maxWidth: "560px",
-    width: "100%",
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-  },
-
-  logoSection: {
-    textAlign: "center",
-    marginBottom: "40px",
-  },
-
-  logoIcon: {
-    width: "64px",
-    height: "64px",
-    backgroundColor: "#ede9fe",
-    borderRadius: "16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    margin: "0 auto 24px",
-    color: "#7c3aed",
-  },
-
-  loginTitle: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: "8px",
-    letterSpacing: "-0.025em",
-  },
-
-  loginSubtitle: {
-    fontSize: "15px",
-    color: "#64748b",
-    fontWeight: "400",
-  },
-
-  agentGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "16px",
-  },
-
-  agentButton: {
-    padding: "20px",
-    backgroundColor: "white",
-    border: "2px solid #e2e8f0",
-    borderRadius: "12px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px",
-  },
-
-  agentAvatar: {
-    width: "56px",
-    height: "56px",
-    borderRadius: "50%",
-    backgroundColor: "#ede9fe",
-    color: "#7c3aed",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "24px",
-    fontWeight: "600",
-  },
-
-  agentName: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#1e293b",
-  },
-
-  // Dashboard Styles
-  mainLayout: {
-    minHeight: "100vh",
-    backgroundColor: "#f1f5f9",
-  },
-
-  header: {
-    backgroundColor: "white",
-    borderBottom: "1px solid #e2e8f0",
-    padding: "20px 32px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-  },
-
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-  },
-
-  headerIcon: {
-    width: "48px",
-    height: "48px",
-    backgroundColor: "#ede9fe",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#7c3aed",
-  },
-
-  headerTitle: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#0f172a",
-    margin: "0 0 4px 0",
-    letterSpacing: "-0.025em",
-  },
-
-  headerSubtitle: {
-    fontSize: "14px",
-    color: "#64748b",
-    margin: "0",
-  },
-
-  headerRight: {
-    display: "flex",
-    gap: "12px",
-  },
-
-  statusBadge: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px 16px",
-    backgroundColor: "#dcfce7",
-    color: "#15803d",
-    borderRadius: "9999px",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-
-  statusDot: {
-    width: "8px",
-    height: "8px",
-    backgroundColor: "#22c55e",
-    borderRadius: "50%",
-    animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-  },
-
-  content: {
-    padding: "32px",
-    maxWidth: "1400px",
-    margin: "0 auto",
-  },
-
-  metricsRow: {
-    marginBottom: "24px",
-  },
-
-  metricCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "24px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-  },
-
-  metricHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "20px",
-  },
-
-  metricLabel: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-  },
-
-  counterWrapper: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "24px",
-  },
-
-  counterButton: {
-    width: "60px",
-    height: "44px",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-    backgroundColor: "white",
-    color: "#475569",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.2s",
-    ":hover": {
-      backgroundColor: "#f8fafc",
-      borderColor: "#cbd5e1",
-    },
-  },
-
-  counterValue: {
-    fontSize: "48px",
-    fontWeight: "700",
-    color: "#0f172a",
-    minWidth: "80px",
-    textAlign: "center",
-    letterSpacing: "-0.025em",
-  },
-
-  gridLayout: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-    gap: "24px",
-    marginBottom: "24px",
-  },
-
-  card: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-    overflow: "hidden",
-  },
-
-  cardHeader: {
-    padding: "20px 24px",
-    borderBottom: "1px solid #e2e8f0",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#fafafa",
-  },
-
-  cardTitle: {
-    fontSize: "16px",
-    fontWeight: "700",
-    color: "#0f172a",
-    margin: "0",
-    letterSpacing: "-0.025em",
-  },
-
-  cardBody: {
-    padding: "24px",
-  },
-
-  label: {
-    display: "block",
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#475569",
-    marginBottom: "8px",
-    marginTop: "16px",
-    textTransform: "uppercase",
-    letterSpacing: "0.025em",
-  },
-
-  textarea: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    fontSize: "14px",
-    fontFamily: "inherit",
-    resize: "vertical",
-    transition: "all 0.2s",
-    outline: "none",
-    boxSizing: "border-box",
-    color: "#0f172a",
-    backgroundColor: "#ffffff",
-  },
-
-  select: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    fontSize: "14px",
-    fontFamily: "inherit",
-    backgroundColor: "white",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    outline: "none",
-    boxSizing: "border-box",
-    color: "#0f172a",
-  },
-
-  primaryButton: {
-    width: "100%",
-    marginTop: "16px",
-    padding: "12px 20px",
-    backgroundColor: "#7c3aed",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    ":hover": {
-      backgroundColor: "#6d28d9",
-    },
-  },
-
-  alertButton: {
-    width: "100%",
-    marginTop: "16px",
-    padding: "12px 20px",
-    backgroundColor: "#dc2626",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  saveButton: {
-    width: "100%",
-    marginTop: "16px",
-    padding: "12px 20px",
-    backgroundColor: "#059669",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  ticketList: {
-    marginTop: "24px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e2e8f0",
-  },
-
-  ticketListHeader: {
-    marginBottom: "16px",
-  },
-
-  ticketCount: {
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#64748b",
-  },
-
-  ticketItem: {
-    backgroundColor: "#f8fafc",
-    borderRadius: "8px",
-    padding: "16px",
-    marginBottom: "12px",
-    border: "1px solid #e2e8f0",
-  },
-
-  ticketNumber: {
-    fontSize: "14px",
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: "8px",
-  },
-
-  ticketTextarea: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: "10px",
-    border: "1px solid #cbd5e1",
-    fontSize: "13px",
-    fontFamily: "inherit",
-    resize: "vertical",
-    backgroundColor: "white",
-    boxSizing: "border-box",
-    color: "#0f172a",
-  },
-
-  actionsFooter: {
-    display: "flex",
-    gap: "16px",
-    justifyContent: "flex-end",
-    padding: "24px",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-  },
-
-  endButton: {
-    padding: "12px 24px",
-    backgroundColor: "#0f172a",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    transition: "all 0.2s",
-  },
-};
 
 export default App;
