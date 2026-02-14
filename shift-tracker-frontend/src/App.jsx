@@ -37,6 +37,7 @@ function App() {
   const [alertComment, setAlertComment] = useState("");
 
   const [incidentStatus, setIncidentStatus] = useState("");
+  const [adhocTask, setAdhocTask] = useState("");
 
   // ---------------------------
   // LOAD SESSION FROM LOCALSTORAGE ON MOUNT
@@ -207,6 +208,31 @@ function App() {
   };
 
   // ---------------------------
+  // SAVE AD-HOC TASK
+  // ---------------------------
+  const handleSaveAdhocTask = async () => {
+    if (!adhocTask.trim()) {
+      alert("Please enter ad-hoc task information");
+      return;
+    }
+
+    const response = await fetch(`${API}/add-adhoc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shift_id: shiftId,
+        task: adhocTask,
+      }),
+    });
+
+    const data = await response.json();
+    console.log(data);
+
+    alert("Ad-hoc task saved successfully");
+    setAdhocTask("");
+  };
+
+  // ---------------------------
   // END SHIFT
   // ---------------------------
   const handleEndShift = async () => {
@@ -225,6 +251,7 @@ Shift Summary:
 Triaged: ${summary.triaged_count}
 Tickets: ${summary.ticket_count}
 Alerts: ${summary.alert_count}
+Ad-hoc Tasks: ${summary.adhoc_count}
     `);
 
     // Clear localStorage
@@ -235,6 +262,7 @@ Alerts: ${summary.alert_count}
     setTriagedCount(0);
     setTickets([]);
     setIncidentStatus("");
+    setAdhocTask("");
   };
 
   return (
@@ -477,6 +505,32 @@ Alerts: ${summary.alert_count}
                   </button>
                 </div>
               </div>
+
+              {/* Ad-hoc Tasks Section */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h3 style={styles.cardTitle}>Ad-hoc Tasks</h3>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  </svg>
+                </div>
+                <div style={styles.cardBody}>
+                  <label style={styles.label}>Task Description</label>
+                  <textarea
+                    rows="5"
+                    placeholder="Document any ad-hoc tasks or special assignments..."
+                    value={adhocTask}
+                    onChange={(e) => setAdhocTask(e.target.value)}
+                    style={styles.textarea}
+                  />
+                  <button
+                    style={styles.primaryButton}
+                    onClick={handleSaveAdhocTask}
+                  >
+                    Save Ad-hoc Task
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Actions Footer */}
@@ -708,7 +762,7 @@ const styles = {
   },
 
   counterButton: {
-    width: "44px",
+    width: "60px",
     height: "44px",
     borderRadius: "10px",
     border: "1px solid #e2e8f0",
@@ -792,6 +846,8 @@ const styles = {
     transition: "all 0.2s",
     outline: "none",
     boxSizing: "border-box",
+    color: "#0f172a",
+    backgroundColor: "#ffffff",
   },
 
   select: {
@@ -806,6 +862,7 @@ const styles = {
     transition: "all 0.2s",
     outline: "none",
     boxSizing: "border-box",
+    color: "#0f172a",
   },
 
   primaryButton: {
@@ -894,6 +951,7 @@ const styles = {
     resize: "vertical",
     backgroundColor: "white",
     boxSizing: "border-box",
+    color: "#0f172a",
   },
 
   actionsFooter: {

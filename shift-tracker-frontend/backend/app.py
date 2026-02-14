@@ -209,6 +209,37 @@ def add_incident():
 
 
 # ----------------------------
+# 🆕 Add Ad-hoc Task
+# ----------------------------
+@app.route("/add-adhoc", methods=["POST", "OPTIONS"])
+def add_adhoc():
+    if request.method == "OPTIONS":
+        return "", 200
+
+    # safer JSON parsing
+    data = request.get_json(silent=True) or {}
+    shift_id = data.get("shift_id")
+    task_text = data.get("task") or data.get("task") or data.get("task                                       ")
+
+    if not task_text:
+        return jsonify({"error": "Task required. Send JSON with 'task'."}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO adhoc_tasks (shift_id, task)
+        VALUES (%s, %s);
+    """, (shift_id, task_text))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": "Ad-hoc task saved successfully"})
+
+
+# ----------------------------
 # 5️⃣ End Shift
 # ----------------------------
 @app.route("/end-shift", methods=["POST", "OPTIONS"])
