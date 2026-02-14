@@ -23,6 +23,45 @@ def get_db_connection():
 
 
 # ----------------------------
+# 🆕 Check Active Shift
+# ----------------------------
+@app.route("/check-active-shift", methods=["POST", "OPTIONS"])
+def check_active_shift():
+    if request.method == "OPTIONS":
+        return "", 200
+
+    data = request.json
+    agent_id = data.get("agent_id")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Check if agent has an active shift (no logout_time)
+    cur.execute("""
+        SELECT id, triaged_count
+        FROM shifts
+        WHERE agent_id = %s AND logout_time IS NULL
+        ORDER BY login_time DESC
+        LIMIT 1;
+    """, (agent_id,))
+
+    result = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if result:
+        shift_id, triaged_count = result
+        return jsonify({
+            "has_active_shift": True,
+            "shift_id": shift_id,
+            "triaged_count": triaged_count
+        })
+    else:
+        return jsonify({"has_active_shift": False})
+
+
+# ----------------------------
 # 1️⃣ Start Shift
 # ----------------------------
 @app.route("/start-shift", methods=["POST", "OPTIONS"])
@@ -48,7 +87,7 @@ def start_shift():
     cur.close()
     conn.close()
 
-    return jsonify({"shift_id": shift_id})
+    return jsonify({"shift_id": shift_id, "triaged_count": 0})
 
 
 # ----------------------------
@@ -109,28 +148,6 @@ def add_tickets():
 
     return jsonify({"message": "Tickets added successfully"})
 
-    if request.method == "OPTIONS":
-        return "", 200
-
-    data = request.json
-    shift_id = data.get("shift_id")
-    tickets = data.get("tickets", [])
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    for ticket in tickets:
-        cur.execute("""
-            INSERT INTO tickets (shift_id, ticket_number)
-            VALUES (%s, %s);
-        """, (shift_id, ticket))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"message": "Tickets added successfully"})
-
 
 # ----------------------------
 # 4️⃣ Add Alert
@@ -162,61 +179,37 @@ def add_alert():
 
 
 # ----------------------------
-# 5️⃣ Toggle Break
+# 🆕 Add Incident/Status
 # ----------------------------
-@app.route("/toggle-break", methods=["POST", "OPTIONS"])
-def toggle_break():
+@app.route("/add-incident", methods=["POST", "OPTIONS"])
+def add_incident():
     if request.method == "OPTIONS":
         return "", 200
 
     data = request.json
     shift_id = data.get("shift_id")
+    description = data.get("description")
+
+    if not description:
+        return jsonify({"error": "Description required"}), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT break_start, total_break_seconds
-        FROM shifts
-        WHERE id = %s;
-    """, (shift_id,))
-
-    result = cur.fetchone()
-
-    if not result:
-        return jsonify({"error": "Shift not found"}), 404
-
-    break_start, total_break_seconds = result
-
-    if break_start is None:
-        cur.execute("""
-            UPDATE shifts
-            SET break_start = NOW()
-            WHERE id = %s;
-        """, (shift_id,))
-        message = "Break started"
-    else:
-        now = datetime.utcnow()
-        break_duration = (now - break_start).total_seconds()
-        new_total = (total_break_seconds or 0) + int(break_duration)
-
-        cur.execute("""
-            UPDATE shifts
-            SET break_start = NULL,
-                total_break_seconds = %s
-            WHERE id = %s;
-        """, (new_total, shift_id))
-        message = "Break ended"
+        INSERT INTO incident_status (shift_id, description)
+        VALUES (%s, %s);
+    """, (shift_id, description))
 
     conn.commit()
     cur.close()
     conn.close()
 
-    return jsonify({"message": message})
+    return jsonify({"message": "Incident saved successfully"})
 
 
 # ----------------------------
-# 6️⃣ End Shift
+# 5️⃣ End Shift
 # ----------------------------
 @app.route("/end-shift", methods=["POST", "OPTIONS"])
 def end_shift():
@@ -243,7 +236,7 @@ def end_shift():
 
 
 # ----------------------------
-# 7️⃣ Shift Summary
+# 6️⃣ Shift Summary
 # ----------------------------
 @app.route("/shift-summary/<shift_id>", methods=["GET"])
 def shift_summary(shift_id):
@@ -275,40 +268,13 @@ def shift_summary(shift_id):
     conn.close()
 
     return jsonify({
-    "agent_id": shift[0],
-    "start_time": shift[1],
-    "end_time": shift[2],
-    "triaged_count": shift[3],
-    "ticket_count": ticket_count,
-    "alert_count": alert_count
-})
-
-@app.route("/add-incident", methods=["POST", "OPTIONS"])
-def add_incident():
-    if request.method == "OPTIONS":
-        return "", 200
-
-    data = request.json
-    shift_id = data.get("shift_id")
-    description = data.get("description")
-
-    if not description:
-        return jsonify({"error": "Description required"}), 400
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO incident_status (shift_id, description)
-        VALUES (%s, %s);
-    """, (shift_id, description))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"message": "Incident saved successfully"})
-
+        "agent_id": shift[0],
+        "start_time": shift[1],
+        "end_time": shift[2],
+        "triaged_count": shift[3],
+        "ticket_count": ticket_count,
+        "alert_count": alert_count
+    })
 
 
 if __name__ == "__main__":
