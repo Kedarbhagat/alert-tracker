@@ -251,7 +251,7 @@ def shift_summary(shift_id):
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT agent_id, start_time, end_time, triaged_count, total_break_seconds
+        SELECT agent_id, login_time, logout_time, triaged_count
         FROM shifts
         WHERE id = %s;
     """, (shift_id,))
@@ -275,14 +275,14 @@ def shift_summary(shift_id):
     conn.close()
 
     return jsonify({
-        "agent_id": shift[0],
-        "start_time": shift[1],
-        "end_time": shift[2],
-        "triaged_count": shift[3],
-        "total_break_seconds": shift[4],
-        "ticket_count": ticket_count,
-        "alert_count": alert_count
-    })
+    "agent_id": shift[0],
+    "start_time": shift[1],
+    "end_time": shift[2],
+    "triaged_count": shift[3],
+    "ticket_count": ticket_count,
+    "alert_count": alert_count
+})
+
 @app.route("/add-incident", methods=["POST", "OPTIONS"])
 def add_incident():
     if request.method == "OPTIONS":
