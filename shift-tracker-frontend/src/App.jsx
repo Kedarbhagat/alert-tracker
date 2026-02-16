@@ -25,7 +25,7 @@ function App() {
     "Database Issue",
   ];
 
-  const API = "http://172.16.8.50:5000";  // Unified backend on port 5000
+  const API = "http://192.168.74.152:5000";  // Unified backend on port 5000
 
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId] = useState(null);
