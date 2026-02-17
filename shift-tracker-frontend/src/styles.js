@@ -1,27 +1,238 @@
+// ── Colour tokens — identical to ManagerDashboard / AdvancedAnalytics ────────
+export const C = {
+  bg:           "#0d1117",
+  bgAlt:        "#161b22",
+  surface:      "#161b22",
+  raised:       "#1c2230",
+  border:       "#30363d",
+  borderLight:  "#21262d",
+  ink:          "#e6edf3",
+  inkMid:       "#8b949e",
+  inkLight:     "#6e7681",
+  accent:       "#2563eb",
+  accentLight:  "#3b82f6",
+  accentBorder: "rgba(37,99,235,0.3)",
+  greenText:    "#3fb950",
+  greenFaint:   "rgba(35,134,54,0.15)",
+  greenBorder:  "rgba(35,134,54,0.3)",
+  redText:      "#f85149",
+  redFaint:     "rgba(218,54,51,0.12)",
+  redBorder:    "rgba(218,54,51,0.3)",
+  amberText:    "#d29922",
+  amberFaint:   "rgba(158,106,3,0.15)",
+  amberBorder:  "rgba(158,106,3,0.3)",
+  purple:       "#a78bfa",
+  purpleFaint:  "rgba(167,139,250,0.15)",
+  purpleBorder: "rgba(167,139,250,0.3)",
+};
+
+// ── Global CSS injected once into <head> ─────────────────────────────────────
+export const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  @keyframes agent-spin  { to { transform: rotate(360deg); } }
+  @keyframes agent-rise  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes agent-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* ── Card ── */
+  .ag-card {
+    background: ${C.surface};
+    border: 1px solid ${C.border};
+    border-radius: 10px;
+    transition: border-color .18s;
+    overflow: hidden;
+  }
+  .ag-card:hover { border-color: ${C.accentBorder}; }
+
+  /* ── Buttons ── */
+  .ag-btn-primary {
+    background: ${C.accent};
+    border: none; color: #fff; border-radius: 7px;
+    padding: 10px 20px; width: 100%; margin-top: 14px;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .ag-btn-primary:hover { background: #1d4ed8; }
+
+  .ag-btn-alert {
+    background: ${C.redFaint};
+    border: 1px solid ${C.redBorder}; color: ${C.redText}; border-radius: 7px;
+    padding: 10px 20px; width: 100%; margin-top: 14px;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .ag-btn-alert:hover { background: rgba(218,54,51,0.22); }
+
+  .ag-btn-save {
+    background: ${C.greenFaint};
+    border: 1px solid ${C.greenBorder}; color: ${C.greenText}; border-radius: 7px;
+    padding: 10px 20px; width: 100%; margin-top: 14px;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .ag-btn-save:hover { background: rgba(35,134,54,0.25); }
+
+  .ag-btn-ghost {
+    background: transparent;
+    border: 1px solid ${C.border}; color: ${C.inkMid}; border-radius: 7px;
+    padding: 10px 24px;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .ag-btn-ghost:hover { border-color: ${C.accentLight}; color: ${C.accentLight}; }
+
+  .ag-btn-end {
+    background: ${C.raised};
+    border: 1px solid ${C.border}; color: ${C.ink}; border-radius: 7px;
+    padding: 10px 28px;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ag-btn-end:hover { border-color: ${C.redBorder}; color: ${C.redText}; }
+
+  .ag-btn-confirm {
+    flex: 1; padding: 11px 0;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: none; color: #fff; border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: opacity .15s;
+  }
+  .ag-btn-confirm:hover { opacity: 0.88; }
+
+  .ag-btn-cancel {
+    flex: 1; padding: 11px 0;
+    background: ${C.raised};
+    border: 1px solid ${C.border}; color: ${C.inkMid}; border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .ag-btn-cancel:hover { border-color: ${C.inkMid}; color: ${C.ink}; }
+
+  .ag-btn-summary {
+    padding: 11px 32px;
+    background: ${C.accent};
+    border: none; color: #fff; border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .ag-btn-summary:hover { background: #1d4ed8; }
+
+  /* ── Agent login card button ── */
+  .ag-agent-btn {
+    padding: 20px;
+    background: ${C.surface};
+    border: 1px solid ${C.border}; border-radius: 10px;
+    cursor: pointer; transition: all .18s;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    font-family: 'Inter', sans-serif;
+  }
+  .ag-agent-btn:hover { border-color: ${C.accentBorder}; background: ${C.raised}; }
+
+  /* ── Inputs / textareas / selects ── */
+  .ag-input {
+    background: ${C.bgAlt};
+    border: 1px solid ${C.border}; border-radius: 7px;
+    padding: 10px 14px; width: 100%;
+    font-size: 13px; font-family: 'Inter', sans-serif; color: ${C.ink};
+    outline: none; transition: border-color .15s; resize: vertical;
+    box-sizing: border-box;
+  }
+  .ag-input:focus { border-color: ${C.accentLight}; }
+  .ag-input::placeholder { color: ${C.inkLight}; }
+
+  /* ── Card header ── */
+  .ag-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid ${C.border};
+    display: flex; justify-content: space-between; align-items: center;
+    background: ${C.borderLight};
+  }
+
+  /* ── Badges ── */
+  .ag-badge-active {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px;
+    background: ${C.greenFaint}; border: 1px solid ${C.greenBorder};
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: ${C.greenText};
+    font-family: 'Inter', sans-serif;
+  }
+  .ag-badge-resume {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px;
+    background: ${C.purpleFaint}; border: 1px solid ${C.purpleBorder};
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: ${C.purple};
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* ── Ticket items ── */
+  .ag-ticket-item {
+    background: ${C.raised};
+    border: 1px solid ${C.border}; border-left: 3px solid ${C.accentLight};
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+  }
+
+  /* ── Summary items ── */
+  .ag-summary-item {
+    background: ${C.raised};
+    border: 1px solid ${C.border}; border-left: 3px solid ${C.accentLight};
+    border-radius: 8px; padding: 14px 16px;
+  }
+
+  /* ── Counter ── */
+  .ag-counter-btn {
+    width: 56px; height: 40px;
+    background: ${C.raised}; border: 1px solid ${C.border};
+    border-radius: 8px; color: ${C.inkMid}; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .ag-counter-btn:hover { border-color: ${C.accentLight}; color: ${C.accentLight}; }
+
+  /* ── Manager toggle button ── */
+  .ag-mgr-toggle {
+    position: fixed; top: 14px; right: 14px; z-index: 9999;
+    padding: 7px 14px;
+    background: ${C.raised}; border: 1px solid ${C.border};
+    border-radius: 6px; color: ${C.accentLight};
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .ag-mgr-toggle:hover { border-color: ${C.accentLight}; background: ${C.bgAlt}; }
+`;
+
+// ── Inline JS style objects ───────────────────────────────────────────────────
 export const styles = {
+  // ── Shared shell ──
   container: {
     minHeight: "100vh",
-    backgroundColor: "#f1f5f9",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    backgroundColor: C.bg,
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
 
-  // Login Screen Styles
+  // ── Login / agent-select ──
   loginWrapper: {
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "24px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    background: C.bg,
   },
 
   loginCard: {
-    backgroundColor: "white",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
     borderRadius: "16px",
     padding: "48px",
     maxWidth: "560px",
     width: "100%",
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
+    animation: "agent-rise .3s ease",
   },
 
   logoSection: {
@@ -32,81 +243,69 @@ export const styles = {
   logoIcon: {
     width: "64px",
     height: "64px",
-    backgroundColor: "#ede9fe",
+    background: "rgba(37,99,235,0.15)",
+    border: `1px solid ${C.accentBorder}`,
     borderRadius: "16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     margin: "0 auto 24px",
-    color: "#7c3aed",
+    color: C.accentLight,
   },
 
   loginTitle: {
-    fontSize: "28px",
+    fontSize: "26px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: C.ink,
     marginBottom: "8px",
     letterSpacing: "-0.025em",
   },
 
   loginSubtitle: {
-    fontSize: "15px",
-    color: "#64748b",
+    fontSize: "14px",
+    color: C.inkMid,
     fontWeight: "400",
   },
 
   agentGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "16px",
-  },
-
-  agentButton: {
-    padding: "20px",
-    backgroundColor: "white",
-    border: "2px solid #e2e8f0",
-    borderRadius: "12px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px",
+    gap: "14px",
   },
 
   agentAvatar: {
-    width: "56px",
-    height: "56px",
+    width: "52px",
+    height: "52px",
     borderRadius: "50%",
-    backgroundColor: "#ede9fe",
-    color: "#7c3aed",
+    background: "rgba(37,99,235,0.15)",
+    border: `1px solid ${C.accentBorder}`,
+    color: C.accentLight,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "24px",
-    fontWeight: "600",
+    fontSize: "22px",
+    fontWeight: "700",
   },
 
   agentName: {
-    fontSize: "16px",
+    fontSize: "14px",
     fontWeight: "600",
-    color: "#1e293b",
+    color: C.ink,
   },
 
-  // Dashboard Styles
+  // ── Dashboard shell ──
   mainLayout: {
     minHeight: "100vh",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: C.bg,
   },
 
   header: {
-    backgroundColor: "white",
-    borderBottom: "1px solid #e2e8f0",
-    padding: "20px 32px",
+    backgroundColor: C.surface,
+    borderBottom: `1px solid ${C.border}`,
+    padding: "16px 32px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
   },
 
   headerLeft: {
@@ -116,71 +315,74 @@ export const styles = {
   },
 
   headerIcon: {
-    width: "48px",
-    height: "48px",
-    backgroundColor: "#ede9fe",
-    borderRadius: "12px",
+    width: "44px",
+    height: "44px",
+    background: "rgba(37,99,235,0.15)",
+    border: `1px solid ${C.accentBorder}`,
+    borderRadius: "10px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#7c3aed",
+    color: C.accentLight,
   },
 
   headerTitle: {
-    fontSize: "20px",
+    fontSize: "18px",
     fontWeight: "700",
-    color: "#0f172a",
-    margin: "0 0 4px 0",
-    letterSpacing: "-0.025em",
+    color: C.ink,
+    margin: "0 0 2px 0",
+    letterSpacing: "-0.02em",
   },
 
   headerSubtitle: {
-    fontSize: "14px",
-    color: "#64748b",
+    fontSize: "13px",
+    color: C.inkMid,
     margin: "0",
   },
 
   headerRight: {
     display: "flex",
     gap: "12px",
+    alignItems: "center",
   },
 
   statusBadge: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    padding: "8px 16px",
-    backgroundColor: "#dcfce7",
-    color: "#15803d",
-    borderRadius: "9999px",
-    fontSize: "14px",
+    padding: "6px 14px",
+    background: C.greenFaint,
+    border: `1px solid ${C.greenBorder}`,
+    color: C.greenText,
+    borderRadius: "999px",
+    fontSize: "12px",
     fontWeight: "600",
   },
 
   statusDot: {
-    width: "8px",
-    height: "8px",
-    backgroundColor: "#22c55e",
+    width: "7px",
+    height: "7px",
+    backgroundColor: C.greenText,
     borderRadius: "50%",
-    animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+    animation: "agent-pulse 2s ease infinite",
   },
 
   content: {
-    padding: "32px",
+    padding: "28px 32px",
     maxWidth: "1400px",
     margin: "0 auto",
   },
 
+  // ── Triage metric card ──
   metricsRow: {
     marginBottom: "24px",
   },
 
   metricCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "24px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
+    borderRadius: "10px",
+    padding: "22px 24px",
   },
 
   metricHeader: {
@@ -191,11 +393,11 @@ export const styles = {
   },
 
   metricLabel: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "700",
+    color: C.inkLight,
     textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.1em",
   },
 
   counterWrapper: {
@@ -205,370 +407,219 @@ export const styles = {
     gap: "24px",
   },
 
-  counterButton: {
-    width: "60px",
-    height: "44px",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-    backgroundColor: "white",
-    color: "#475569",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.2s",
-  },
-
   counterValue: {
-    fontSize: "48px",
+    fontSize: "52px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: C.ink,
     minWidth: "80px",
     textAlign: "center",
-    letterSpacing: "-0.025em",
+    letterSpacing: "-0.03em",
+    fontFamily: "'JetBrains Mono', monospace",
   },
 
+  // ── Grid + cards ──
   gridLayout: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-    gap: "24px",
+    gap: "20px",
     marginBottom: "24px",
   },
 
-  card: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-    overflow: "hidden",
-  },
+  card: {}, // handled by .ag-card className
 
-  cardHeader: {
-    padding: "20px 24px",
-    borderBottom: "1px solid #e2e8f0",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#fafafa",
-  },
+  cardHeader: {}, // handled by .ag-card-header className
 
   cardTitle: {
-    fontSize: "16px",
+    fontSize: "14px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: C.ink,
     margin: "0",
-    letterSpacing: "-0.025em",
+    letterSpacing: "-0.01em",
   },
 
   cardBody: {
-    padding: "24px",
+    padding: "20px",
   },
 
   label: {
     display: "block",
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#475569",
+    fontSize: "11px",
+    fontWeight: "700",
+    color: C.inkLight,
     marginBottom: "8px",
     marginTop: "16px",
     textTransform: "uppercase",
-    letterSpacing: "0.025em",
+    letterSpacing: "0.08em",
   },
 
-  textarea: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    fontSize: "14px",
-    fontFamily: "inherit",
-    resize: "vertical",
-    transition: "all 0.2s",
-    outline: "none",
-    boxSizing: "border-box",
-    color: "#0f172a",
-    backgroundColor: "#ffffff",
-  },
-
-  select: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    fontSize: "14px",
-    fontFamily: "inherit",
-    backgroundColor: "white",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    outline: "none",
-    boxSizing: "border-box",
-    color: "#0f172a",
-  },
-
-  primaryButton: {
-    width: "100%",
-    marginTop: "16px",
-    padding: "12px 20px",
-    backgroundColor: "#7c3aed",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  alertButton: {
-    width: "100%",
-    marginTop: "16px",
-    padding: "12px 20px",
-    backgroundColor: "#dc2626",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  saveButton: {
-    width: "100%",
-    marginTop: "16px",
-    padding: "12px 20px",
-    backgroundColor: "#059669",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
+  // ── Ticket items ──
   ticketList: {
-    marginTop: "24px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e2e8f0",
+    marginTop: "20px",
+    paddingTop: "20px",
+    borderTop: `1px solid ${C.border}`,
   },
 
   ticketListHeader: {
-    marginBottom: "16px",
+    marginBottom: "12px",
   },
 
   ticketCount: {
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: "600",
-    color: "#64748b",
-  },
-
-  ticketItem: {
-    backgroundColor: "#f8fafc",
-    borderRadius: "8px",
-    padding: "16px",
-    marginBottom: "12px",
-    border: "1px solid #e2e8f0",
+    color: C.inkMid,
   },
 
   ticketNumber: {
-    fontSize: "14px",
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: "8px",
-  },
-
-  ticketTextarea: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: "10px",
-    border: "1px solid #cbd5e1",
     fontSize: "13px",
-    fontFamily: "inherit",
-    resize: "vertical",
-    backgroundColor: "white",
-    boxSizing: "border-box",
-    color: "#0f172a",
+    fontWeight: "700",
+    color: C.accentLight,
+    marginBottom: "8px",
+    fontFamily: "'JetBrains Mono', monospace",
   },
 
+  // ── Footer ──
   actionsFooter: {
     display: "flex",
-    gap: "16px",
+    gap: "12px",
     justifyContent: "flex-end",
-    padding: "24px",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+    padding: "20px 24px",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
+    borderRadius: "10px",
   },
 
-  endButton: {
-    padding: "12px 24px",
-    backgroundColor: "#0f172a",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    transition: "all 0.2s",
-  },
-
-  // Shift Summary Screen Styles
+  // ── Summary screen ──
   summaryWrapper: {
     minHeight: "100vh",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: C.bg,
     padding: "32px",
   },
 
   summaryContainer: {
-    maxWidth: "1200px",
+    maxWidth: "1100px",
     margin: "0 auto",
   },
 
   summaryHeader: {
-    backgroundColor: "white",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
     borderRadius: "12px",
     padding: "32px",
-    marginBottom: "24px",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+    marginBottom: "20px",
     textAlign: "center",
+    animation: "agent-rise .3s ease",
   },
 
   summaryTitle: {
-    fontSize: "32px",
+    fontSize: "28px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: C.ink,
     marginBottom: "8px",
+    letterSpacing: "-0.025em",
   },
 
   summarySubtitle: {
-    fontSize: "16px",
-    color: "#64748b",
-    marginBottom: "24px",
+    fontSize: "14px",
+    color: C.inkMid,
+    marginBottom: "28px",
   },
 
   summaryStats: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "16px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "14px",
     marginTop: "24px",
   },
 
   statCard: {
-    backgroundColor: "#f8fafc",
+    background: C.raised,
+    border: `1px solid ${C.border}`,
     borderRadius: "8px",
-    padding: "20px",
+    padding: "18px",
     textAlign: "center",
   },
 
   statValue: {
-    fontSize: "36px",
+    fontSize: "34px",
     fontWeight: "700",
-    color: "#7c3aed",
-    marginBottom: "8px",
+    color: C.accentLight,
+    marginBottom: "6px",
+    fontFamily: "'JetBrains Mono', monospace",
   },
 
   statLabel: {
-    fontSize: "14px",
-    color: "#64748b",
+    fontSize: "11px",
+    color: C.inkLight,
     textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.1em",
     fontWeight: "600",
   },
 
   summarySection: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "24px",
-    marginBottom: "24px",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
+    borderRadius: "10px",
+    padding: "22px 24px",
+    marginBottom: "16px",
+    animation: "agent-rise .3s ease",
   },
 
   sectionTitle: {
-    fontSize: "18px",
+    fontSize: "14px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: C.ink,
     marginBottom: "16px",
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
   },
 
   itemList: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "10px",
   },
 
-  summaryItem: {
-    backgroundColor: "#f8fafc",
-    borderRadius: "8px",
-    padding: "16px",
-    borderLeft: "4px solid #7c3aed",
-  },
+  summaryItem: {}, // handled by .ag-summary-item
 
   itemHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "8px",
+    marginBottom: "6px",
   },
 
   itemTitle: {
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: C.ink,
   },
 
   itemTime: {
-    fontSize: "12px",
-    color: "#64748b",
+    fontSize: "11px",
+    color: C.inkLight,
+    fontFamily: "'JetBrains Mono', monospace",
   },
 
   itemDescription: {
-    fontSize: "14px",
-    color: "#475569",
-    lineHeight: "1.5",
+    fontSize: "13px",
+    color: C.inkMid,
+    lineHeight: "1.6",
   },
 
   emptyState: {
     textAlign: "center",
-    padding: "32px",
-    color: "#94a3b8",
+    padding: "40px",
+    color: C.inkLight,
     fontSize: "14px",
   },
 
   summaryActions: {
     display: "flex",
     justifyContent: "center",
-    gap: "16px",
-    marginTop: "32px",
-  },
-
-  summaryButton: {
-    padding: "12px 32px",
-    backgroundColor: "#7c3aed",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  summarySecondaryButton: {
-    padding: "12px 32px",
-    backgroundColor: "white",
-    color: "#0f172a",
-    border: "2px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.2s",
+    gap: "14px",
+    marginTop: "28px",
   },
 };

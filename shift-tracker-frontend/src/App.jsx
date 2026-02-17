@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
-import { styles } from "./styles";
-import ManagerDashboard from "./mngr_dash";                    // added import
+import { styles, C, GLOBAL_CSS } from "./styles";
+import ManagerDashboard from "./mngr_dash";
 
 function App() {
-  const [agents, setAgents]           = useState([]);
+  const [agents, setAgents]               = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
-  const [agentsError, setAgentsError] = useState(null);
-  // Agent the user clicked on — waiting for "Start Shift" confirmation
-  const [pendingAgent, setPendingAgent] = useState(null);
-  // ID of the agent who owns the current session on THIS browser
+  const [agentsError, setAgentsError]     = useState(null);
+  const [pendingAgent, setPendingAgent]   = useState(null);
   const [activeAgentId, setActiveAgentId] = useState(null);
 
   const monitorOptions = [
@@ -26,9 +24,20 @@ function App() {
     "Database Issue",
   ];
 
-  const API = "http://192.168.74.152:5000";  // Unified backend on port 5000
+  const API = "http://192.168.74.152:5000";
 
-  // Fetch agents from DB on mount
+  // ── Inject global CSS once ──────────────────────────────────────────────────
+  useEffect(() => {
+    const id = "ag-global-styles";
+    if (!document.getElementById(id)) {
+      const el = document.createElement("style");
+      el.id = id;
+      el.textContent = GLOBAL_CSS;
+      document.head.appendChild(el);
+    }
+  }, []);
+
+  // ── Fetch agents from DB on mount ───────────────────────────────────────────
   useEffect(() => {
     const loadAgents = async () => {
       try {
@@ -47,76 +56,65 @@ function App() {
   }, []);
 
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [shiftId, setShiftId] = useState(null);
-  const [triagedCount, setTriagedCount] = useState(0);
+  const [shiftId, setShiftId]             = useState(null);
+  const [triagedCount, setTriagedCount]   = useState(0);
+  const [showManager, setShowManager]     = useState(false);
 
-  // manager toggle state
-  const [showManager, setShowManager] = useState(false);     // added state
-
-  const [ticketInput, setTicketInput] = useState("");
-  const [tickets, setTickets] = useState([]);
+  const [ticketInput, setTicketInput]     = useState("");
+  const [tickets, setTickets]             = useState([]);
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
-  const [selectedAlert, setSelectedAlert] = useState("");
-  const [alertComment, setAlertComment] = useState("");
+  const [selectedAlert, setSelectedAlert]     = useState("");
+  const [alertComment, setAlertComment]       = useState("");
 
   const [incidentStatus, setIncidentStatus] = useState("");
-  const [adhocTask, setAdhocTask] = useState("");
-  const [showSummary, setShowSummary] = useState(false);
-  const [summaryData, setSummaryData] = useState(null);
+  const [adhocTask, setAdhocTask]           = useState("");
+  const [showSummary, setShowSummary]       = useState(false);
+  const [summaryData, setSummaryData]       = useState(null);
 
-  // ---------------------------
-  // LOAD SESSION FROM LOCALSTORAGE ON MOUNT — auto-resume on reload
-  // ---------------------------
+  // ── Restore session from localStorage ──────────────────────────────────────
   useEffect(() => {
-    const savedSession = localStorage.getItem("activeShift");
-    if (savedSession) {
+    const saved = localStorage.getItem("activeShift");
+    if (saved) {
       try {
-        const session = JSON.parse(savedSession);
-        if (session.agentName && session.shiftId) {
-          setSelectedAgent(session.agentName);
-          setActiveAgentId(session.agentId || null);
-          setShiftId(session.shiftId);
-          setTriagedCount(session.triagedCount || 0);
+        const s = JSON.parse(saved);
+        if (s.agentName && s.shiftId) {
+          setSelectedAgent(s.agentName);
+          setActiveAgentId(s.agentId || null);
+          setShiftId(s.shiftId);
+          setTriagedCount(s.triagedCount || 0);
         }
-      } catch (e) {
+      } catch {
         localStorage.removeItem("activeShift");
       }
     }
   }, []);
 
-  // ---------------------------
-  // SELECT AGENT (shows confirmation screen)
-  // ---------------------------
-  const handleSelectAgent = (agent) => {
-    setPendingAgent(agent);
-  };
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const handleSelectAgent = (agent) => setPendingAgent(agent);
 
-  // ---------------------------
-  // START SHIFT (called after confirmation)
-  // ---------------------------
   const handleStartShift = async () => {
     if (!pendingAgent) return;
     const agent = pendingAgent;
 
-    const checkResponse = await fetch(`${API}/check-active-shift`, {
+    const checkRes  = await fetch(`${API}/check-active-shift`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agent_id: agent.id, agent_name: agent.name }),
     });
-    const checkData = await checkResponse.json();
+    const checkData = await checkRes.json();
     const agentUUID = checkData.agent_id || agent.id;
 
     let shiftData;
     if (checkData.has_active_shift) {
       shiftData = { shift_id: checkData.shift_id, triaged_count: checkData.triaged_count };
     } else {
-      const response = await fetch(`${API}/start-shift`, {
+      const r  = await fetch(`${API}/start-shift`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agent_id: agentUUID }),
       });
-      shiftData = await response.json();
+      shiftData = await r.json();
     }
 
     setPendingAgent(null);
@@ -124,7 +122,6 @@ function App() {
     setActiveAgentId(agent.id);
     setShiftId(shiftData.shift_id);
     setTriagedCount(shiftData.triaged_count || 0);
-    // Persist session so reload auto-resumes
     localStorage.setItem("activeShift", JSON.stringify({
       agentName: agent.name,
       agentId: agent.id,
@@ -133,68 +130,43 @@ function App() {
     }));
   };
 
-  // ---------------------------
-  // UPDATE TRIAGE
-  // ---------------------------
   const updateTriage = async (change) => {
     if (triagedCount <= 0 && change < 0) return;
-
-    const response = await fetch(`${API}/update-triage`, {
+    const res  = await fetch(`${API}/update-triage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift_id: shiftId,
-        change: change,
-      }),
+      body: JSON.stringify({ shift_id: shiftId, change }),
     });
-
-    const data = await response.json();
+    const data = await res.json();
     setTriagedCount(data.triaged_count);
   };
 
-  // ---------------------------
-  // ADD TICKETS
-  // ---------------------------
   const handleAddTickets = () => {
     if (!ticketInput.trim()) return;
-
     const newTickets = ticketInput
       .split("\n")
       .filter((t) => t.trim() !== "")
-      .map((t) => ({
-        number: t,
-        description: "",
-      }));
-
+      .map((t) => ({ number: t, description: "" }));
     setTickets([...tickets, ...newTickets]);
     setTicketInput("");
   };
 
   const saveTicketsToBackend = async () => {
     if (tickets.length === 0) return;
-
     await fetch(`${API}/add-tickets`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift_id: shiftId,
-        tickets: tickets,
-      }),
+      body: JSON.stringify({ shift_id: shiftId, tickets }),
     });
-
     alert("Tickets saved successfully");
     setTickets([]);
   };
 
-  // ---------------------------
-  // ADD ALERT (Monitor + Type + Comment)
-  // ---------------------------
   const handleAddAlert = async () => {
     if (!selectedMonitor || !selectedAlert) {
       alert("Please select monitor and alert type");
       return;
     }
-
     await fetch(`${API}/add-alert`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -205,90 +177,54 @@ function App() {
         comment: alertComment,
       }),
     });
-
     alert("Alert logged successfully");
-
     setSelectedMonitor("");
     setSelectedAlert("");
     setAlertComment("");
   };
 
-  // ---------------------------
-  // SAVE INCIDENT/STATUS
-  // ---------------------------
   const handleSaveIncidentStatus = async () => {
     if (!incidentStatus.trim()) {
       alert("Please enter incident/status information");
       return;
     }
-
-    const response = await fetch(`${API}/add-incident`, {
+    await fetch(`${API}/add-incident`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift_id: shiftId,
-        description: incidentStatus,
-      }),
+      body: JSON.stringify({ shift_id: shiftId, description: incidentStatus }),
     });
-
-    const data = await response.json();
-    console.log(data);
-
     alert("Incident/Status saved successfully");
     setIncidentStatus("");
   };
 
-  // ---------------------------
-  // SAVE AD-HOC TASK
-  // ---------------------------
   const handleSaveAdhocTask = async () => {
     if (!adhocTask.trim()) {
       alert("Please enter ad-hoc task information");
       return;
     }
-
-    const response = await fetch(`${API}/add-adhoc`, {
+    await fetch(`${API}/add-adhoc`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift_id: shiftId,
-        task: adhocTask,
-      }),
+      body: JSON.stringify({ shift_id: shiftId, task: adhocTask }),
     });
-
-    const data = await response.json();
-    console.log(data);
-
     alert("Ad-hoc task saved successfully");
     setAdhocTask("");
   };
 
-  // ---------------------------
-  // END SHIFT
-  // ---------------------------
   const handleEndShift = async () => {
     await fetch(`${API}/end-shift`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ shift_id: shiftId }),
     });
-
-    const response = await fetch(`${API}/shift-summary/${shiftId}`);
-    const summary = await response.json();
-
-    // Show summary screen instead of alert
+    const res     = await fetch(`${API}/shift-summary/${shiftId}`);
+    const summary = await res.json();
     setSummaryData(summary);
     setShowSummary(true);
   };
 
-  // ---------------------------
-  // CLOSE SUMMARY AND LOGOUT
-  // ---------------------------
   const handleCloseSummary = () => {
-    // Clear localStorage
     localStorage.removeItem("activeShift");
-
-    // Reset all state
     setShowSummary(false);
     setSummaryData(null);
     setSelectedAgent(null);
@@ -300,160 +236,152 @@ function App() {
     setAdhocTask("");
   };
 
+  // ── Shared icon colours ─────────────────────────────────────────────────────
+  const iconStroke = C.inkMid;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div style={styles.container}>
-      {/* quick toggle to open manager dashboard */}
+
+      {/* ── Manager toggle ── */}
       <button
+        className="ag-mgr-toggle"
         onClick={() => setShowManager((s) => !s)}
-        style={{
-          position: "fixed",
-          top: 12,
-          right: 12,
-          zIndex: 9999,
-          padding: "8px 12px",
-          background: "#0ea5e9",
-          color: "white",
-          border: "none",
-          borderRadius: 6,
-          cursor: "pointer",
-        }}
       >
-        {showManager ? "Close Manager" : "Open Manager"}
+        {showManager ? "← Agent View" : "Manager ↗"}
       </button>
 
+      {/* ══════════════════════════════════════════════════════════════════════
+          MANAGER VIEW
+      ══════════════════════════════════════════════════════════════════════ */}
       {showManager ? (
         <ManagerDashboard />
+
+      /* ════════════════════════════════════════════════════════════════════
+          LOGIN / AGENT SELECT
+      ════════════════════════════════════════════════════════════════════ */
       ) : !selectedAgent ? (
-        // Login screen — agents fetched from DB
         <div style={styles.loginWrapper}>
           <div style={styles.loginCard}>
+
+            {/* Logo + title */}
             <div style={styles.logoSection}>
               <div style={styles.logoIcon}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                   <path d="M2 17l10 5 10-5"/>
                   <path d="M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h1 style={styles.loginTitle}>Shift Management System</h1>
-              <p style={styles.loginSubtitle}>Select your profile to begin shift</p>
+              <h1 style={styles.loginTitle}>Shift Management</h1>
+              <p style={styles.loginSubtitle}>Select your profile to begin your shift</p>
             </div>
 
+            {/* Loading / error states */}
             {agentsLoading && (
-              <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8" }}>
-                Loading agents…
+              <div style={{ textAlign: "center", padding: "32px 0" }}>
+                <div style={{
+                  width: 26, height: 26, margin: "0 auto",
+                  border: `2px solid ${C.borderLight}`,
+                  borderTop: `2px solid ${C.accentLight}`,
+                  borderRadius: "50%",
+                  animation: "agent-spin .8s linear infinite",
+                }} />
               </div>
             )}
             {agentsError && (
-              <div style={{ textAlign: "center", padding: "16px", color: "#dc2626", background: "#fee2e2", borderRadius: 8, marginBottom: 16 }}>
-                ⚠️ Could not load agents: {agentsError}
+              <div style={{
+                padding: "12px 16px", marginBottom: "16px",
+                background: C.redFaint, border: `1px solid ${C.redBorder}`,
+                borderRadius: "8px", color: C.redText,
+                fontSize: "13px", display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <span>⚠</span> Could not load agents: {agentsError}
               </div>
             )}
             {!agentsLoading && !agentsError && agents.length === 0 && (
-              <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8" }}>
+              <div style={{ textAlign: "center", padding: "32px 0", color: C.inkLight, fontSize: "14px" }}>
                 No agents registered yet. Ask your manager to add agents.
               </div>
             )}
 
+            {/* Agent grid */}
             <div style={styles.agentGrid}>
-              {agents.map((agent) => (
-                <button
-                  key={agent.id}
-                  style={{
-                    ...styles.agentButton,
-                    opacity: (agent.is_active && agent.id !== activeAgentId) ? 0.45 : 1,
-                    cursor: (agent.is_active && agent.id !== activeAgentId) ? "not-allowed" : "pointer",
-                    position: "relative",
-                    outline: (agent.is_active && agent.id === activeAgentId) ? "2px solid #7c3aed" : "none",
-                  }}
-                  onClick={() => {
-                    const isMyShift = agent.is_active && agent.id === activeAgentId;
-                    const blockedByOther = agent.is_active && agent.id !== activeAgentId;
-                    if (!blockedByOther) handleSelectAgent(agent);
-                  }}
-                  onMouseEnter={(e) => {
-                    const blockedByOther = agent.is_active && agent.id !== activeAgentId;
-                    if (!blockedByOther) {
-                      e.currentTarget.style.backgroundColor = "#f8fafc";
-                      e.currentTarget.style.borderColor = "#1e40af";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "white";
-                    e.currentTarget.style.borderColor = "#e2e8f0";
-                  }}
-                >
-                  <div style={styles.agentAvatar}>{agent.name.charAt(0).toUpperCase()}</div>
-                  <span style={styles.agentName}>{agent.name}</span>
-                  {agent.is_active && (
-                    <span style={{
-                      display: "block",
-                      fontSize: 11,
-                      color: agent.id === activeAgentId ? "#7c3aed" : "#16a34a",
-                      fontWeight: 600,
-                      marginTop: 4,
-                    }}>
-                      {agent.id === activeAgentId ? "↩ Resume Shift" : "● In Shift"}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {agents.map((agent) => {
+                const blocked  = agent.is_active && agent.id !== activeAgentId;
+                const isMyself = agent.is_active && agent.id === activeAgentId;
+                return (
+                  <button
+                    key={agent.id}
+                    className="ag-agent-btn"
+                    style={{ opacity: blocked ? 0.4 : 1, cursor: blocked ? "not-allowed" : "pointer" }}
+                    onClick={() => { if (!blocked) handleSelectAgent(agent); }}
+                  >
+                    <div style={styles.agentAvatar}>
+                      {agent.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span style={styles.agentName}>{agent.name}</span>
+                    {agent.is_active && (
+                      <span className={isMyself ? "ag-badge-resume" : "ag-badge-active"}>
+                        {isMyself ? "↩ Resume Shift" : "● In Shift"}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* ── Confirm Start Shift modal ── */}
+          {/* ── Confirm-Start modal ── */}
           {pendingAgent && (
-            <div style={{
-              position: "fixed", inset: 0,
-              background: "rgba(15,23,42,0.5)",
-              backdropFilter: "blur(4px)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              zIndex: 1000,
-            }} onClick={() => setPendingAgent(null)}>
-              <div style={{
-                background: "#fff", borderRadius: 16,
-                padding: "36px 40px", maxWidth: 400, width: "90%",
-                boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
-                textAlign: "center",
-              }} onClick={e => e.stopPropagation()}>
+            <div
+              style={{
+                position: "fixed", inset: 0,
+                background: "rgba(0,0,0,0.72)",
+                backdropFilter: "blur(4px)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                zIndex: 1000,
+              }}
+              onClick={() => setPendingAgent(null)}
+            >
+              <div
+                style={{
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "14px",
+                  padding: "40px",
+                  maxWidth: "380px", width: "90%",
+                  boxShadow: "0 24px 56px rgba(0,0,0,0.7)",
+                  textAlign: "center",
+                  animation: "agent-rise .2s ease",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div style={{
-                  width: 64, height: 64, borderRadius: "50%",
-                  background: "linear-gradient(135deg,#ede9fe,#ddd6fe)",
+                  width: 60, height: 60, borderRadius: "50%",
+                  background: "rgba(37,99,235,0.15)",
+                  border: `1px solid ${C.accentBorder}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 26, fontWeight: 700, color: "#6d28d9",
-                  margin: "0 auto 16px",
+                  fontSize: 24, fontWeight: 700, color: C.accentLight,
+                  margin: "0 auto 18px",
                 }}>
                   {pendingAgent.name.charAt(0).toUpperCase()}
                 </div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 6, marginTop: 0 }}>
                   {pendingAgent.name}
                 </h2>
-                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>
+                <p style={{ fontSize: 13, color: C.inkMid, marginBottom: 28, marginTop: 0 }}>
                   {pendingAgent?.is_active && pendingAgent?.id === activeAgentId
                     ? "Resume your active shift?"
                     : "Ready to start your shift?"}
                 </p>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    style={{
-                      flex: 1, padding: "11px 0",
-                      background: "#f1f5f9", color: "#475569",
-                      border: "none", borderRadius: 8,
-                      cursor: "pointer", fontWeight: 600, fontSize: 14,
-                    }}
-                    onClick={() => setPendingAgent(null)}
-                  >
+                  <button className="ag-btn-cancel" onClick={() => setPendingAgent(null)}>
                     Cancel
                   </button>
-                  <button
-                    style={{
-                      flex: 1, padding: "11px 0",
-                      background: "linear-gradient(135deg,#7c3aed,#6d28d9)",
-                      color: "#fff", border: "none", borderRadius: 8,
-                      cursor: "pointer", fontWeight: 600, fontSize: 14,
-                    }}
-                    onClick={handleStartShift}
-                  >
+                  <button className="ag-btn-confirm" onClick={handleStartShift}>
                     {pendingAgent?.is_active && pendingAgent?.id === activeAgentId
                       ? "Resume Shift"
                       : "Start Shift"}
@@ -463,71 +391,69 @@ function App() {
             </div>
           )}
         </div>
+
+      /* ════════════════════════════════════════════════════════════════════
+          SHIFT SUMMARY
+      ════════════════════════════════════════════════════════════════════ */
       ) : showSummary ? (
-        // Summary screen JSX
         <div style={styles.summaryWrapper}>
           <div style={styles.summaryContainer}>
+
+            {/* Summary header */}
             <div style={styles.summaryHeader}>
-              <h1 style={styles.summaryTitle}>Shift Complete! 🎉</h1>
+              <h1 style={styles.summaryTitle}>Shift Complete ✓</h1>
               <p style={styles.summarySubtitle}>
-                Agent: {selectedAgent} | {new Date(summaryData.start_time).toLocaleString()} - {new Date(summaryData.end_time).toLocaleString()}
+                {selectedAgent} &nbsp;·&nbsp;{" "}
+                {new Date(summaryData.start_time).toLocaleString()} — {new Date(summaryData.end_time).toLocaleString()}
               </p>
 
               <div style={styles.summaryStats}>
-                <div style={styles.statCard}>
-                  <div style={styles.statValue}>{summaryData.triaged_count}</div>
-                  <div style={styles.statLabel}>Triaged</div>
-                </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statValue}>{summaryData.ticket_count}</div>
-                  <div style={styles.statLabel}>Tickets</div>
-                </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statValue}>{summaryData.alert_count}</div>
-                  <div style={styles.statLabel}>Alerts</div>
-                </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statValue}>{summaryData.incident_count}</div>
-                  <div style={styles.statLabel}>Incidents</div>
-                </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statValue}>{summaryData.adhoc_count}</div>
-                  <div style={styles.statLabel}>Ad-hoc Tasks</div>
-                </div>
+                {[
+                  { label: "Triaged",    value: summaryData.triaged_count  },
+                  { label: "Tickets",    value: summaryData.ticket_count   },
+                  { label: "Alerts",     value: summaryData.alert_count    },
+                  { label: "Incidents",  value: summaryData.incident_count },
+                  { label: "Ad-hoc",     value: summaryData.adhoc_count    },
+                ].map(({ label, value }) => (
+                  <div key={label} style={styles.statCard}>
+                    <div style={styles.statValue}>{value}</div>
+                    <div style={styles.statLabel}>{label}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Tickets Section */}
-            {summaryData.tickets && summaryData.tickets.length > 0 && (
+            {/* Tickets */}
+            {summaryData.tickets?.length > 0 && (
               <div style={styles.summarySection}>
                 <h2 style={styles.sectionTitle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.accentLight} strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
                   </svg>
                   Tickets Handled ({summaryData.tickets.length})
                 </h2>
                 <div style={styles.itemList}>
-                  {summaryData.tickets.map((ticket, index) => (
-                    <div key={index} style={styles.summaryItem}>
+                  {summaryData.tickets.map((ticket, i) => (
+                    <div key={i} className="ag-summary-item">
                       <div style={styles.itemHeader}>
-                        <span style={styles.itemTitle}>#{ticket.number}</span>
+                        <span style={{ ...styles.itemTitle, fontFamily: "'JetBrains Mono',monospace", color: C.accentLight }}>
+                          #{ticket.number}
+                        </span>
                         <span style={styles.itemTime}>{new Date(ticket.created_at).toLocaleTimeString()}</span>
                       </div>
-                      {ticket.description && (
-                        <div style={styles.itemDescription}>{ticket.description}</div>
-                      )}
+                      {ticket.description && <div style={styles.itemDescription}>{ticket.description}</div>}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Alerts Section */}
-            {summaryData.alerts && summaryData.alerts.length > 0 && (
+            {/* Alerts */}
+            {summaryData.alerts?.length > 0 && (
               <div style={styles.summarySection}>
                 <h2 style={styles.sectionTitle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.amberText} strokeWidth="2">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/>
                     <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -535,26 +461,24 @@ function App() {
                   Alerts Logged ({summaryData.alerts.length})
                 </h2>
                 <div style={styles.itemList}>
-                  {summaryData.alerts.map((alert, index) => (
-                    <div key={index} style={styles.summaryItem}>
+                  {summaryData.alerts.map((alert, i) => (
+                    <div key={i} className="ag-summary-item" style={{ borderLeftColor: C.amberText }}>
                       <div style={styles.itemHeader}>
-                        <span style={styles.itemTitle}>{alert.monitor} - {alert.type}</span>
+                        <span style={styles.itemTitle}>{alert.monitor} — {alert.type}</span>
                         <span style={styles.itemTime}>{new Date(alert.created_at).toLocaleTimeString()}</span>
                       </div>
-                      {alert.comment && (
-                        <div style={styles.itemDescription}>{alert.comment}</div>
-                      )}
+                      {alert.comment && <div style={styles.itemDescription}>{alert.comment}</div>}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Incidents Section */}
-            {summaryData.incidents && summaryData.incidents.length > 0 && (
+            {/* Incidents */}
+            {summaryData.incidents?.length > 0 && (
               <div style={styles.summarySection}>
                 <h2 style={styles.sectionTitle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.redText} strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="12" y1="8" x2="12" y2="12"/>
                     <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -562,10 +486,10 @@ function App() {
                   Incidents Reported ({summaryData.incidents.length})
                 </h2>
                 <div style={styles.itemList}>
-                  {summaryData.incidents.map((incident, index) => (
-                    <div key={index} style={styles.summaryItem}>
+                  {summaryData.incidents.map((incident, i) => (
+                    <div key={i} className="ag-summary-item" style={{ borderLeftColor: C.redText }}>
                       <div style={styles.itemHeader}>
-                        <span style={styles.itemTitle}>Incident #{index + 1}</span>
+                        <span style={styles.itemTitle}>Incident #{i + 1}</span>
                         <span style={styles.itemTime}>{new Date(incident.created_at).toLocaleTimeString()}</span>
                       </div>
                       <div style={styles.itemDescription}>{incident.description}</div>
@@ -575,20 +499,20 @@ function App() {
               </div>
             )}
 
-            {/* Ad-hoc Tasks Section */}
-            {summaryData.adhoc_tasks && summaryData.adhoc_tasks.length > 0 && (
+            {/* Ad-hoc tasks */}
+            {summaryData.adhoc_tasks?.length > 0 && (
               <div style={styles.summarySection}>
                 <h2 style={styles.sectionTitle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.greenText} strokeWidth="2">
                     <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                   </svg>
-                  Ad-hoc Tasks Completed ({summaryData.adhoc_tasks.length})
+                  Ad-hoc Tasks ({summaryData.adhoc_tasks.length})
                 </h2>
                 <div style={styles.itemList}>
-                  {summaryData.adhoc_tasks.map((task, index) => (
-                    <div key={index} style={styles.summaryItem}>
+                  {summaryData.adhoc_tasks.map((task, i) => (
+                    <div key={i} className="ag-summary-item" style={{ borderLeftColor: C.greenText }}>
                       <div style={styles.itemHeader}>
-                        <span style={styles.itemTitle}>Task #{index + 1}</span>
+                        <span style={styles.itemTitle}>Task #{i + 1}</span>
                         <span style={styles.itemTime}>{new Date(task.created_at).toLocaleTimeString()}</span>
                       </div>
                       <div style={styles.itemDescription}>{task.task}</div>
@@ -598,37 +522,36 @@ function App() {
               </div>
             )}
 
-            {/* Empty state if nothing was done */}
-            {!summaryData.tickets?.length && 
-             !summaryData.alerts?.length && 
-             !summaryData.incidents?.length && 
-             !summaryData.adhoc_tasks?.length && 
+            {/* Empty state */}
+            {!summaryData.tickets?.length &&
+             !summaryData.alerts?.length &&
+             !summaryData.incidents?.length &&
+             !summaryData.adhoc_tasks?.length &&
              summaryData.triaged_count === 0 && (
               <div style={styles.summarySection}>
-                <div style={styles.emptyState}>
-                  <p>No activities recorded during this shift.</p>
-                </div>
+                <div style={styles.emptyState}>No activities recorded during this shift.</div>
               </div>
             )}
 
             <div style={styles.summaryActions}>
-              <button
-                style={styles.summaryButton}
-                onClick={handleCloseSummary}
-              >
+              <button className="ag-btn-summary" onClick={handleCloseSummary}>
                 Start New Shift
               </button>
             </div>
           </div>
         </div>
+
+      /* ════════════════════════════════════════════════════════════════════
+          MAIN SHIFT DASHBOARD
+      ════════════════════════════════════════════════════════════════════ */
       ) : (
-        // Main shift dashboard JSX
         <div style={styles.mainLayout}>
-          {/* Header */}
+
+          {/* ── Header ── */}
           <div style={styles.header}>
             <div style={styles.headerLeft}>
               <div style={styles.headerIcon}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                   <path d="M2 17l10 5 10-5"/>
                   <path d="M2 12l10 5 10-5"/>
@@ -636,42 +559,39 @@ function App() {
               </div>
               <div>
                 <h2 style={styles.headerTitle}>Shift Dashboard</h2>
-                <p style={styles.headerSubtitle}>Agent: {selectedAgent}</p>
+                <p style={styles.headerSubtitle}>
+                  Agent: <span style={{ color: C.accentLight, fontWeight: 600 }}>{selectedAgent}</span>
+                </p>
               </div>
             </div>
             <div style={styles.headerRight}>
               <div style={styles.statusBadge}>
-                <div style={styles.statusDot}></div>
+                <div style={styles.statusDot} />
                 Active Shift
               </div>
             </div>
           </div>
 
-          {/* Main Content */}
+          {/* ── Content ── */}
           <div style={styles.content}>
-            {/* Metrics Row */}
+
+            {/* Triage counter */}
             <div style={styles.metricsRow}>
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
                   <span style={styles.metricLabel}>Triaged Cases</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
                 </div>
                 <div style={styles.counterWrapper}>
-                  <button
-                    style={styles.counterButton}
-                    onClick={() => updateTriage(-1)}
-                  >
+                  <button className="ag-counter-btn" onClick={() => updateTriage(-1)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                       <line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                   </button>
                   <span style={styles.counterValue}>{triagedCount}</span>
-                  <button
-                    style={styles.counterButton}
-                    onClick={() => updateTriage(1)}
-                  >
+                  <button className="ag-counter-btn" onClick={() => updateTriage(1)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                       <line x1="12" y1="5" x2="12" y2="19"/>
                       <line x1="5" y1="12" x2="19" y2="12"/>
@@ -681,30 +601,28 @@ function App() {
               </div>
             </div>
 
-            {/* Grid Layout */}
+            {/* ── 2×2 card grid ── */}
             <div style={styles.gridLayout}>
-              {/* Tickets Section */}
-              <div style={styles.card}>
-                <div style={styles.cardHeader}>
+
+              {/* Ticket Management */}
+              <div className="ag-card">
+                <div className="ag-card-header">
                   <h3 style={styles.cardTitle}>Ticket Management</h3>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
                   </svg>
                 </div>
                 <div style={styles.cardBody}>
-                  <label style={styles.label}>Add Ticket Numbers</label>
+                  <label style={styles.label}>Ticket Numbers</label>
                   <textarea
                     rows="3"
                     placeholder="Enter ticket numbers (one per line)"
                     value={ticketInput}
                     onChange={(e) => setTicketInput(e.target.value)}
-                    style={styles.textarea}
+                    className="ag-input"
                   />
-                  <button
-                    style={styles.primaryButton}
-                    onClick={handleAddTickets}
-                  >
+                  <button className="ag-btn-primary" onClick={handleAddTickets}>
                     Add Tickets
                   </button>
 
@@ -714,7 +632,7 @@ function App() {
                         <span style={styles.ticketCount}>{tickets.length} ticket(s) pending save</span>
                       </div>
                       {tickets.map((ticket, index) => (
-                        <div key={index} style={styles.ticketItem}>
+                        <div key={index} className="ag-ticket-item">
                           <div style={styles.ticketNumber}>#{ticket.number}</div>
                           <textarea
                             placeholder="Add description..."
@@ -724,14 +642,12 @@ function App() {
                               updated[index].description = e.target.value;
                               setTickets(updated);
                             }}
-                            style={styles.ticketTextarea}
+                            className="ag-input"
+                            rows="2"
                           />
                         </div>
                       ))}
-                      <button
-                        style={styles.saveButton}
-                        onClick={saveTicketsToBackend}
-                      >
+                      <button className="ag-btn-save" onClick={saveTicketsToBackend}>
                         Save All Tickets
                       </button>
                     </div>
@@ -739,11 +655,11 @@ function App() {
                 </div>
               </div>
 
-              {/* Alerts Section */}
-              <div style={styles.card}>
-                <div style={styles.cardHeader}>
+              {/* Alert Logging */}
+              <div className="ag-card">
+                <div className="ag-card-header">
                   <h3 style={styles.cardTitle}>Alert Logging</h3>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.amberText} strokeWidth="2">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/>
                     <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -754,13 +670,11 @@ function App() {
                   <select
                     value={selectedMonitor}
                     onChange={(e) => setSelectedMonitor(e.target.value)}
-                    style={styles.select}
+                    className="ag-input"
                   >
-                    <option value="">Select monitor...</option>
-                    {monitorOptions.map((monitor, i) => (
-                      <option key={i} value={monitor}>
-                        {monitor}
-                      </option>
+                    <option value="">Select monitor…</option>
+                    {monitorOptions.map((m, i) => (
+                      <option key={i} value={m}>{m}</option>
                     ))}
                   </select>
 
@@ -768,39 +682,34 @@ function App() {
                   <select
                     value={selectedAlert}
                     onChange={(e) => setSelectedAlert(e.target.value)}
-                    style={styles.select}
+                    className="ag-input"
                   >
-                    <option value="">Select alert type...</option>
-                    {alertOptions.map((alert, i) => (
-                      <option key={i} value={alert}>
-                        {alert}
-                      </option>
+                    <option value="">Select alert type…</option>
+                    {alertOptions.map((a, i) => (
+                      <option key={i} value={a}>{a}</option>
                     ))}
                   </select>
 
                   <label style={styles.label}>Alert Details</label>
                   <textarea
                     rows="3"
-                    placeholder="Provide detailed information about the alert..."
+                    placeholder="Provide detailed information about the alert…"
                     value={alertComment}
                     onChange={(e) => setAlertComment(e.target.value)}
-                    style={styles.textarea}
+                    className="ag-input"
                   />
 
-                  <button
-                    style={styles.alertButton}
-                    onClick={handleAddAlert}
-                  >
+                  <button className="ag-btn-alert" onClick={handleAddAlert}>
                     Log Alert
                   </button>
                 </div>
               </div>
 
-              {/* Incident/Status Section */}
-              <div style={styles.card}>
-                <div style={styles.cardHeader}>
+              {/* Incident Reporting */}
+              <div className="ag-card">
+                <div className="ag-card-header">
                   <h3 style={styles.cardTitle}>Incident Reporting</h3>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.redText} strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="12" y1="8" x2="12" y2="12"/>
                     <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -809,55 +718,47 @@ function App() {
                 <div style={styles.cardBody}>
                   <label style={styles.label}>Incident Description</label>
                   <textarea
-                    rows="5"
-                    placeholder="Document incident details, status updates, or relevant information..."
+                    rows="6"
+                    placeholder="Document incident details, status updates, or relevant information…"
                     value={incidentStatus}
                     onChange={(e) => setIncidentStatus(e.target.value)}
-                    style={styles.textarea}
+                    className="ag-input"
                   />
-                  <button
-                    style={styles.primaryButton}
-                    onClick={handleSaveIncidentStatus}
-                  >
+                  <button className="ag-btn-primary" onClick={handleSaveIncidentStatus}>
                     Save Incident Report
                   </button>
                 </div>
               </div>
 
-              {/* Ad-hoc Tasks Section */}
-              <div style={styles.card}>
-                <div style={styles.cardHeader}>
+              {/* Ad-hoc Tasks */}
+              <div className="ag-card">
+                <div className="ag-card-header">
                   <h3 style={styles.cardTitle}>Ad-hoc Tasks</h3>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.greenText} strokeWidth="2">
                     <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                   </svg>
                 </div>
                 <div style={styles.cardBody}>
                   <label style={styles.label}>Task Description</label>
                   <textarea
-                    rows="5"
-                    placeholder="Document any ad-hoc tasks or special assignments..."
+                    rows="6"
+                    placeholder="Document any ad-hoc tasks or special assignments…"
                     value={adhocTask}
                     onChange={(e) => setAdhocTask(e.target.value)}
-                    style={styles.textarea}
+                    className="ag-input"
                   />
-                  <button
-                    style={styles.primaryButton}
-                    onClick={handleSaveAdhocTask}
-                  >
+                  <button className="ag-btn-save" onClick={handleSaveAdhocTask}>
                     Save Ad-hoc Task
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Actions Footer */}
+            </div>{/* /gridLayout */}
+
+            {/* ── Footer ── */}
             <div style={styles.actionsFooter}>
-              <button
-                style={styles.endButton}
-                onClick={handleEndShift}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: "8px"}}>
+              <button className="ag-btn-end" onClick={handleEndShift}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                   <polyline points="16 17 21 12 16 7"/>
                   <line x1="21" y1="12" x2="9" y2="12"/>
@@ -865,7 +766,8 @@ function App() {
                 End Shift
               </button>
             </div>
-          </div>
+
+          </div>{/* /content */}
         </div>
       )}
     </div>

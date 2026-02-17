@@ -1,209 +1,832 @@
 import { useState, useEffect, useCallback } from "react";
-import { managerStyles as styles } from "./mngr_styles";
 import AdvancedAnalytics from "./Advancedanalyticis";
-import UserManagement from "./Usermanagement";   // ← new import
+import UserManagement from "./Usermanagement";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MANAGER DASHBOARD
+   Dark enterprise theme — identical palette to AdvancedAnalytics so every
+   tab feels like one cohesive product.  No external style file needed.
+───────────────────────────────────────────────────────────────────────────── */
+
+// ── Colour tokens (mirrors AdvancedAnalytics exactly) ──────────────────────
+const C = {
+  bg:           "#0d1117",
+  bgAlt:        "#161b22",
+  surface:      "#161b22",
+  raised:       "#1c2230",
+  border:       "#30363d",
+  borderLight:  "#21262d",
+  ink:          "#e6edf3",
+  inkMid:       "#8b949e",
+  inkLight:     "#6e7681",
+  accent:       "#2563eb",
+  accentLight:  "#3b82f6",
+  accentBorder: "rgba(37,99,235,0.3)",
+  greenText:    "#3fb950",
+  greenFaint:   "rgba(35,134,54,0.15)",
+  greenBorder:  "rgba(35,134,54,0.3)",
+  redText:      "#f85149",
+  redFaint:     "rgba(218,54,51,0.12)",
+  redBorder:    "rgba(218,54,51,0.3)",
+  amberText:    "#d29922",
+  amberFaint:   "rgba(158,106,3,0.15)",
+  amberBorder:  "rgba(158,106,3,0.3)",
+  indigo:       "#6366f1",
+  indigoFaint:  "rgba(99,102,241,0.12)",
+  indigoBorder: "rgba(99,102,241,0.3)",
+  purple:       "#a78bfa",
+  purpleFaint:  "rgba(167,139,250,0.15)",
+  purpleBorder: "rgba(167,139,250,0.3)",
+};
+
+// ── Global CSS injected once ───────────────────────────────────────────────
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  @keyframes mgr-spin  { to { transform: rotate(360deg); } }
+  @keyframes mgr-rise  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes mgr-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* ── Card ── */
+  .mgr-card {
+    background: ${C.surface};
+    border: 1px solid ${C.border};
+    border-radius: 10px;
+    transition: border-color .18s;
+  }
+  .mgr-card:hover { border-color: ${C.accentBorder}; }
+
+  /* ── Buttons ── */
+  .mgr-btn {
+    background: ${C.accent};
+    border: none; color: #fff; border-radius: 6px;
+    padding: 7px 16px;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+  }
+  .mgr-btn:hover { background: #1d4ed8; }
+
+  .mgr-btn-ghost {
+    background: transparent;
+    border: 1px solid ${C.border}; color: ${C.inkMid};
+    border-radius: 6px; padding: 7px 16px;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .mgr-btn-ghost:hover { border-color: ${C.accentLight}; color: ${C.accentLight}; }
+
+  .mgr-btn-indigo {
+    background: #4f46e5;
+    border: none; color: #fff; border-radius: 6px;
+    padding: 7px 16px;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+  }
+  .mgr-btn-indigo:hover { background: #4338ca; }
+
+  /* ── Nav tabs ── */
+  .mgr-tab {
+    padding: 14px 20px;
+    border: none; background: transparent;
+    cursor: pointer;
+    font-size: 13px; font-family: 'Inter', sans-serif; font-weight: 500;
+    color: ${C.inkMid};
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .mgr-tab:hover { color: ${C.ink}; }
+  .mgr-tab-active {
+    color: ${C.accentLight} !important;
+    border-bottom-color: ${C.accentLight} !important;
+  }
+
+  /* ── Inputs ── */
+  .mgr-input {
+    background: ${C.bgAlt};
+    border: 1px solid ${C.border}; border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px; font-family: 'Inter', sans-serif; color: ${C.ink};
+    outline: none; transition: border-color .15s;
+  }
+  .mgr-input:focus { border-color: ${C.accentLight}; }
+  .mgr-input::placeholder { color: ${C.inkLight}; }
+
+  /* ── Table ── */
+  .mgr-thead th {
+    padding: 10px 16px;
+    font-size: 10px; font-family: 'Inter', sans-serif;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: ${C.inkLight}; background: ${C.borderLight};
+    border-bottom: 1px solid ${C.border};
+    text-align: left; font-weight: 600; white-space: nowrap;
+  }
+  .mgr-tbody tr {
+    border-bottom: 1px solid ${C.borderLight};
+    transition: background .1s;
+  }
+  .mgr-tbody tr:hover { background: ${C.raised}; }
+  .mgr-tbody td {
+    padding: 12px 16px;
+    font-size: 13px; font-family: 'Inter', sans-serif; color: ${C.ink};
+  }
+
+  /* ── Modal ── */
+  .mgr-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.72);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+    padding: 24px;
+  }
+  .mgr-modal {
+    background: ${C.surface};
+    border: 1px solid ${C.border};
+    border-radius: 14px;
+    width: 100%; max-width: 740px; max-height: 84vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 56px rgba(0,0,0,0.7);
+    animation: mgr-rise .2s ease;
+  }
+  .mgr-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid ${C.border};
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0;
+    background: ${C.surface}; z-index: 10;
+  }
+  .mgr-modal-body { padding: 24px; }
+
+  /* ── Badges ── */
+  .mgr-badge-active {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    background: ${C.greenFaint}; border: 1px solid ${C.greenBorder};
+    border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: ${C.greenText};
+    font-family: 'Inter', sans-serif;
+  }
+  .mgr-badge-done {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    background: ${C.indigoFaint}; border: 1px solid ${C.indigoBorder};
+    border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: #818cf8;
+    font-family: 'Inter', sans-serif;
+  }
+`;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PURE SHARED COMPONENTS  (defined outside ManagerDashboard — no re-mount)
+══════════════════════════════════════════════════════════════════════════ */
+
+function Spinner() {
+  return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", padding:52 }}>
+      <div style={{
+        width: 26, height: 26,
+        border: `2px solid ${C.borderLight}`,
+        borderTop: `2px solid ${C.accentLight}`,
+        borderRadius: "50%",
+        animation: "mgr-spin .8s linear infinite",
+      }} />
+    </div>
+  );
+}
+
+function ErrorBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "12px 16px",
+      background: C.redFaint, border: `1px solid ${C.redBorder}`,
+      borderRadius: 8, marginBottom: 16,
+      fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.redText,
+    }}>
+      <span>⚠</span> {message}
+    </div>
+  );
+}
+
+function EmptyState({ message = "No data available" }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "60px 24px",
+      color: C.inkLight, fontFamily: "'Inter',sans-serif",
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 12, opacity: 0.3 }}>◌</div>
+      <div style={{ fontSize: 13 }}>{message}</div>
+    </div>
+  );
+}
+
+function SectionHeading({ title, sub }) {
+  return (
+    <div style={{ marginBottom: 20, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
+      <div style={{
+        fontFamily: "'Inter',sans-serif", fontSize: 14, fontWeight: 600,
+        color: C.ink, letterSpacing: "-0.01em",
+      }}>
+        {title}
+      </div>
+      {sub && (
+        <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: C.inkMid, marginTop: 3 }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubLabel({ children }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 700, color: C.inkMid,
+      textTransform: "uppercase", letterSpacing: ".1em",
+      fontFamily: "'Inter',sans-serif",
+      marginBottom: 10, paddingBottom: 8,
+      borderBottom: `1px solid ${C.borderLight}`,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function KpiCard({ label, value, color = C.accentLight, delay = 0 }) {
+  return (
+    <div
+      className="mgr-card"
+      style={{ padding: "20px 22px", position: "relative", overflow: "hidden", animation: `mgr-rise .4s ${delay}s both` }}
+    >
+      {/* colour accent bar at top */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 2,
+        background: color, borderRadius: "10px 10px 0 0",
+      }} />
+      <div style={{
+        fontSize: 34, fontWeight: 700, color: C.ink, lineHeight: 1,
+        letterSpacing: "-0.04em", fontFamily: "'Inter',sans-serif", marginTop: 6,
+      }}>
+        {typeof value === "number" ? value.toLocaleString() : (value ?? "—")}
+      </div>
+      <div style={{
+        fontSize: 10, color: C.inkMid, textTransform: "uppercase",
+        letterSpacing: ".1em", fontFamily: "'Inter',sans-serif",
+        fontWeight: 600, marginTop: 7,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function ModalDetailCard({ label, value, color = C.ink }) {
+  return (
+    <div className="mgr-card" style={{ padding: "12px 14px" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color, fontFamily: "'Inter',sans-serif", wordBreak: "break-all" }}>
+        {value}
+      </div>
+      <div style={{
+        fontSize: 10, color: C.inkMid, textTransform: "uppercase",
+        letterSpacing: ".08em", fontFamily: "'Inter',sans-serif",
+        fontWeight: 600, marginTop: 5,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function ModalItem({ children, accentColor = C.accentLight }) {
+  return (
+    <div style={{
+      background: C.raised,
+      border: `1px solid ${C.borderLight}`,
+      borderLeft: `3px solid ${accentColor}`,
+      borderRadius: 8, padding: "10px 14px", marginBottom: 8,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+/* ── Dot used inside active badges ── */
+function ActiveDot() {
+  return (
+    <span style={{
+      display: "inline-block",
+      width: 5, height: 5, borderRadius: "50%",
+      background: C.greenText,
+    }} />
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIFT DETAILS MODAL
+══════════════════════════════════════════════════════════════════════════ */
+
+function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate, formatDuration }) {
+  return (
+    <div className="mgr-overlay" onClick={onClose}>
+      <div className="mgr-modal" onClick={e => e.stopPropagation()}>
+
+        <div className="mgr-modal-header">
+          <div>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 16, fontWeight: 700, color: C.ink }}>
+              Shift Details
+            </div>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: C.inkMid, marginTop: 2 }}>
+              Full activity breakdown for this shift
+            </div>
+          </div>
+          <button className="mgr-btn-ghost" onClick={onClose}>✕ Close</button>
+        </div>
+
+        <div className="mgr-modal-body">
+          {isLoading ? (
+            <Spinner />
+          ) : error ? (
+            <ErrorBanner message={error} />
+          ) : shiftDetails ? (
+            <>
+              {/* Meta cards */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(148px, 1fr))",
+                gap: 12, marginBottom: 24,
+              }}>
+                <ModalDetailCard
+                  label="Agent ID"
+                  value={shiftDetails.agent_id ? `${shiftDetails.agent_id.slice(0, 14)}…` : "—"}
+                  color={C.accentLight}
+                />
+                <ModalDetailCard
+                  label="Start"
+                  value={formatDate(shiftDetails.login_time)}
+                  color={C.ink}
+                />
+                <ModalDetailCard
+                  label="End"
+                  value={shiftDetails.logout_time ? formatDate(shiftDetails.logout_time) : "Active"}
+                  color={shiftDetails.logout_time ? C.ink : C.greenText}
+                />
+                <ModalDetailCard
+                  label="Cases Triaged"
+                  value={shiftDetails.triaged_count ?? 0}
+                  color={C.greenText}
+                />
+              </div>
+
+              {/* Tickets */}
+              {shiftDetails.tickets?.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SubLabel>Tickets ({shiftDetails.tickets.length})</SubLabel>
+                  {shiftDetails.tickets.map((ticket, i) => (
+                    <ModalItem key={i} accentColor={C.amberText}>
+                      <span style={{
+                        fontFamily: "'JetBrains Mono',monospace",
+                        fontSize: 12, color: C.amberText, fontWeight: 600,
+                      }}>
+                        #{ticket.number}
+                      </span>
+                      {ticket.description && (
+                        <span style={{
+                          fontFamily: "'Inter',sans-serif", fontSize: 13,
+                          color: C.inkMid, marginLeft: 10,
+                        }}>
+                          {ticket.description}
+                        </span>
+                      )}
+                    </ModalItem>
+                  ))}
+                </div>
+              )}
+
+              {/* Alerts */}
+              {shiftDetails.alerts?.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SubLabel>Alerts ({shiftDetails.alerts.length})</SubLabel>
+                  {shiftDetails.alerts.map((alert, i) => (
+                    <ModalItem key={i} accentColor={C.redText}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{
+                          fontFamily: "'Inter',sans-serif", fontSize: 13,
+                          fontWeight: 600, color: C.redText,
+                        }}>
+                          {alert.monitor}
+                        </span>
+                        <span style={{ color: C.borderLight }}>·</span>
+                        <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: C.inkMid }}>
+                          {alert.type}
+                        </span>
+                      </div>
+                      {alert.comment && (
+                        <div style={{
+                          fontFamily: "'Inter',sans-serif", fontSize: 12,
+                          color: C.inkLight, marginTop: 5,
+                        }}>
+                          {alert.comment}
+                        </div>
+                      )}
+                    </ModalItem>
+                  ))}
+                </div>
+              )}
+
+              {/* Incidents */}
+              {shiftDetails.incidents?.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SubLabel>Incidents ({shiftDetails.incidents.length})</SubLabel>
+                  {shiftDetails.incidents.map((incident, i) => (
+                    <ModalItem key={i} accentColor={C.purple}>
+                      <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.ink }}>
+                        {incident.description}
+                      </span>
+                    </ModalItem>
+                  ))}
+                </div>
+              )}
+
+              {/* Ad-hoc tasks */}
+              {shiftDetails.adhoc_tasks?.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <SubLabel>Ad-hoc Tasks ({shiftDetails.adhoc_tasks.length})</SubLabel>
+                  {shiftDetails.adhoc_tasks.map((task, i) => (
+                    <ModalItem key={i} accentColor={C.indigo}>
+                      <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.ink }}>
+                        {task.task}
+                      </span>
+                    </ModalItem>
+                  ))}
+                </div>
+              )}
+
+              {/* Nothing logged */}
+              {!shiftDetails.tickets?.length &&
+               !shiftDetails.alerts?.length &&
+               !shiftDetails.incidents?.length &&
+               !shiftDetails.adhoc_tasks?.length && (
+                <EmptyState message="No activity recorded for this shift" />
+              )}
+            </>
+          ) : null}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AGENT STATS MODAL
+══════════════════════════════════════════════════════════════════════════ */
+
+function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, formatDuration }) {
+  return (
+    <div className="mgr-overlay" onClick={onClose}>
+      <div className="mgr-modal" onClick={e => e.stopPropagation()}>
+
+        <div className="mgr-modal-header">
+          <div>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 16, fontWeight: 700, color: C.ink }}>
+              Agent Statistics
+            </div>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: C.inkMid, marginTop: 2 }}>
+              Historical performance overview
+            </div>
+          </div>
+          <button className="mgr-btn-ghost" onClick={onClose}>✕ Close</button>
+        </div>
+
+        <div className="mgr-modal-body">
+          {isLoading ? (
+            <Spinner />
+          ) : error ? (
+            <ErrorBanner message={error} />
+          ) : agentStats ? (
+            <>
+              {/* KPI row */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: 12, marginBottom: 24,
+              }}>
+                <ModalDetailCard
+                  label="Agent ID"
+                  value={agentStats.agent_id ? `${agentStats.agent_id.slice(0, 14)}…` : "—"}
+                  color={C.accentLight}
+                />
+                <ModalDetailCard label="Total Shifts"  value={agentStats.total_shifts  ?? 0} color={C.accentLight} />
+                <ModalDetailCard label="Cases Triaged" value={agentStats.total_triaged ?? 0} color={C.greenText}   />
+                <ModalDetailCard label="Avg / Shift"   value={agentStats.avg_per_shift ?? 0} color={C.amberText}   />
+              </div>
+
+              {/* Recent shifts table */}
+              {agentStats.recent_shifts?.length > 0 && (
+                <div>
+                  <SubLabel>Recent Shifts</SubLabel>
+                  <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead className="mgr-thead">
+                        <tr>
+                          {["Login Time", "Duration", "Cases Triaged"].map(h => (
+                            <th key={h}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="mgr-tbody">
+                        {agentStats.recent_shifts.map(shift => (
+                          <tr key={shift.id}>
+                            <td style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: C.inkMid }}>
+                              {formatDate(shift.login_time)}
+                            </td>
+                            <td style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>
+                              {formatDuration(shift.duration_hours)}
+                            </td>
+                            <td style={{ fontWeight: 600, color: C.greenText }}>
+                              {shift.triaged_count ?? 0}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════════════════════ */
 
 function ManagerDashboard() {
   const API = "http://192.168.74.152:5000";
 
-  const [activeView, setActiveView] = useState("overview");
-  const [activeAgents, setActiveAgents] = useState([]);
-  const [allShifts, setAllShifts] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
+  /* ── State ── */
+  const [activeView,        setActiveView]        = useState("overview");
+  const [activeAgents,      setActiveAgents]      = useState([]);
+  const [allShifts,         setAllShifts]         = useState([]);
+  const [analytics,         setAnalytics]         = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
-  const [selectedAgent, setSelectedAgent] = useState(null);
-  const [agentStats, setAgentStats] = useState(null);
-  const [shiftDetails, setShiftDetails] = useState(null);
-  const [filters, setFilters] = useState({ startDate: "", endDate: "", agentId: "" });
-  const [loading, setLoading] = useState({
-    activeAgents: false, shifts: false, analytics: false,
-    advancedAnalytics: false, agentStats: false, shiftDetails: false,
-  });
-  const [errors, setErrors] = useState({});
+  const [selectedAgentId,   setSelectedAgentId]   = useState(null);   // was "selectedAgent" — renamed for clarity
+  const [agentStats,        setAgentStats]        = useState(null);
+  const [shiftDetails,      setShiftDetails]      = useState(null);
+  const [shiftDetailOpen,   setShiftDetailOpen]   = useState(false);  // separate open flag prevents null-flash
+  const [filters,           setFilters]           = useState({ startDate: "", endDate: "", agentId: "" });
 
-  // ─── Fetch helpers ──────────────────────────────────────────────────────────
+  const [loading, setLoading] = useState({
+    activeAgents:      false,
+    shifts:            false,
+    analytics:         false,
+    advancedAnalytics: false,
+    agentStats:        false,
+    shiftDetails:      false,
+  });
+
+  const [errors, setErrors] = useState({
+    activeAgents:      null,
+    shifts:            null,
+    analytics:         null,
+    advancedAnalytics: null,
+    agentStats:        null,
+    shiftDetails:      null,
+  });
+
+  /* ── Fetch helpers ── */
 
   const fetchActiveAgents = useCallback(async () => {
+    setLoading(p => ({ ...p, activeAgents: true }));
+    setErrors(p => ({ ...p, activeAgents: null }));
     try {
-      setLoading(p => ({ ...p, activeAgents: true }));
-      setErrors(p => ({ ...p, activeAgents: null }));
       const res = await fetch(`${API}/manager/active-agents`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json();
-      setActiveAgents(d.active_agents || []);
-    } catch (e) {
-      setErrors(p => ({ ...p, activeAgents: e.message }));
+      const data = await res.json();
+      setActiveAgents(data.active_agents ?? []);
+    } catch (err) {
+      setErrors(p => ({ ...p, activeAgents: err.message }));
       setActiveAgents([]);
     } finally {
       setLoading(p => ({ ...p, activeAgents: false }));
     }
   }, [API]);
 
-  const fetchShifts = useCallback(async () => {
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(p => ({ ...p, analytics: true }));
+    setErrors(p => ({ ...p, analytics: null }));
     try {
-      setLoading(p => ({ ...p, shifts: true }));
-      setErrors(p => ({ ...p, shifts: null }));
+      const res = await fetch(`${API}/manager/analytics`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setAnalytics(await res.json());
+    } catch (err) {
+      setErrors(p => ({ ...p, analytics: err.message }));
+    } finally {
+      setLoading(p => ({ ...p, analytics: false }));
+    }
+  }, [API]);
+
+  const fetchShifts = useCallback(async () => {
+    setLoading(p => ({ ...p, shifts: true }));
+    setErrors(p => ({ ...p, shifts: null }));
+    try {
       const params = new URLSearchParams();
       if (filters.startDate) params.append("start_date", filters.startDate);
-      if (filters.endDate) params.append("end_date", filters.endDate);
-      if (filters.agentId) params.append("agent_id", filters.agentId);
-      const res = await fetch(`${API}/manager/shifts?${params}`);
+      if (filters.endDate)   params.append("end_date",   filters.endDate);
+      if (filters.agentId)   params.append("agent_id",   filters.agentId);
+      const res = await fetch(`${API}/manager/shifts?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json();
-      setAllShifts(d.shifts || []);
-    } catch (e) {
-      setErrors(p => ({ ...p, shifts: e.message }));
+      const data = await res.json();
+      setAllShifts(data.shifts ?? []);
+    } catch (err) {
+      setErrors(p => ({ ...p, shifts: err.message }));
       setAllShifts([]);
     } finally {
       setLoading(p => ({ ...p, shifts: false }));
     }
   }, [API, filters]);
 
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      setLoading(p => ({ ...p, analytics: true }));
-      setErrors(p => ({ ...p, analytics: null }));
-      const res = await fetch(`${API}/manager/analytics`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setAnalytics(await res.json());
-    } catch (e) {
-      setErrors(p => ({ ...p, analytics: e.message }));
-    } finally {
-      setLoading(p => ({ ...p, analytics: false }));
-    }
-  }, [API]);
-
   const fetchAdvancedAnalytics = useCallback(async () => {
+    setLoading(p => ({ ...p, advancedAnalytics: true }));
+    setErrors(p => ({ ...p, advancedAnalytics: null }));
     try {
-      setLoading(p => ({ ...p, advancedAnalytics: true }));
-      setErrors(p => ({ ...p, advancedAnalytics: null }));
       const res = await fetch(`${API}/manager/advanced-analytics`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setAdvancedAnalytics(await res.json());
-    } catch (e) {
-      setErrors(p => ({ ...p, advancedAnalytics: e.message }));
+    } catch (err) {
+      setErrors(p => ({ ...p, advancedAnalytics: err.message }));
     } finally {
       setLoading(p => ({ ...p, advancedAnalytics: false }));
     }
   }, [API]);
 
   const fetchAgentStats = useCallback(async (agentId) => {
+    setLoading(p => ({ ...p, agentStats: true }));
+    setErrors(p => ({ ...p, agentStats: null }));
+    setSelectedAgentId(agentId);
+    setAgentStats(null);
     try {
-      setLoading(p => ({ ...p, agentStats: true }));
-      setErrors(p => ({ ...p, agentStats: null }));
       const res = await fetch(`${API}/manager/agent-stats/${agentId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json();
-      setAgentStats(d);
-      setSelectedAgent(agentId);
-    } catch (e) {
-      setErrors(p => ({ ...p, agentStats: e.message }));
+      setAgentStats(await res.json());
+    } catch (err) {
+      setErrors(p => ({ ...p, agentStats: err.message }));
     } finally {
       setLoading(p => ({ ...p, agentStats: false }));
     }
   }, [API]);
 
   const fetchShiftDetails = useCallback(async (shiftId) => {
+    setLoading(p => ({ ...p, shiftDetails: true }));
+    setErrors(p => ({ ...p, shiftDetails: null }));
+    setShiftDetails(null);
+    setShiftDetailOpen(true);
     try {
-      setLoading(p => ({ ...p, shiftDetails: true }));
-      setErrors(p => ({ ...p, shiftDetails: null }));
       const res = await fetch(`${API}/manager/shift-details/${shiftId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setShiftDetails(await res.json());
-    } catch (e) {
-      setErrors(p => ({ ...p, shiftDetails: e.message }));
+    } catch (err) {
+      setErrors(p => ({ ...p, shiftDetails: err.message }));
     } finally {
       setLoading(p => ({ ...p, shiftDetails: false }));
     }
   }, [API]);
 
-  // ─── Effects ────────────────────────────────────────────────────────────────
+  const closeShiftDetails = useCallback(() => {
+    setShiftDetailOpen(false);
+    setShiftDetails(null);
+    setErrors(p => ({ ...p, shiftDetails: null }));
+  }, []);
 
+  const closeAgentStats = useCallback(() => {
+    setSelectedAgentId(null);
+    setAgentStats(null);
+    setErrors(p => ({ ...p, agentStats: null }));
+  }, []);
+
+  /* ── Effects ── */
+
+  // Boot + 30 s auto-refresh
   useEffect(() => {
     fetchActiveAgents();
     fetchAnalytics();
-    const iv = setInterval(() => {
+    const interval = setInterval(() => {
       fetchActiveAgents();
       fetchAnalytics();
       if (activeView === "analytics") fetchAdvancedAnalytics();
     }, 30000);
-    return () => clearInterval(iv);
+    return () => clearInterval(interval);
   }, [fetchActiveAgents, fetchAnalytics, fetchAdvancedAnalytics, activeView]);
 
+  // Load shifts on tab open or filter change
   useEffect(() => {
     if (activeView === "shifts") fetchShifts();
   }, [filters, activeView, fetchShifts]);
 
+  // Lazy-load advanced analytics on first visit
   useEffect(() => {
     if (activeView === "analytics" && !advancedAnalytics) fetchAdvancedAnalytics();
   }, [activeView, advancedAnalytics, fetchAdvancedAnalytics]);
 
-  // ─── Formatters ─────────────────────────────────────────────────────────────
+  /* ── Formatters ── */
 
   const formatDuration = (hours) => {
-    if (!hours || hours < 0) return "0h 0m";
-    return `${Math.floor(hours)}h ${Math.round((hours - Math.floor(hours)) * 60)}m`;
+    if (hours == null || hours < 0) return "—";
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h}h ${m}m`;
   };
 
-  const formatDate = (s) => {
-    if (!s) return "N/A";
-    try { return new Date(s).toLocaleString(); } catch { return "Invalid date"; }
+  const formatDate = (value) => {
+    if (!value) return "—";
+    try {
+      return new Date(value).toLocaleString(undefined, {
+        month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch {
+      return "Invalid date";
+    }
   };
 
-  // ─── Inline utility components ───────────────────────────────────────────────
+  /* ── Tab config ── */
+  const TABS = [
+    { id: "overview",  label: "Overview"            },
+    { id: "active",    label: `Active Agents${activeAgents.length > 0 ? ` (${activeAgents.length})` : ""}` },
+    { id: "shifts",    label: "All Shifts"           },
+    { id: "analytics", label: "Advanced Analytics"  },
+    { id: "users",     label: "Manage Users"         },
+  ];
 
-  const ErrorBanner = ({ message }) => (
-    <div style={{ padding: 16, backgroundColor: "#fee2e2", color: "#dc2626", borderRadius: 8, marginBottom: 16 }}>
-      ⚠️ {message}
-    </div>
-  );
-
-  const Spinner = () => (
-    <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
-      <div style={{
-        width: 36, height: 36, border: "3px solid #e5e7eb",
-        borderTop: "3px solid #7c3aed", borderRadius: "50%",
-        animation: "mgrSpin 0.9s linear infinite",
-      }} />
-      <style>{`@keyframes mgrSpin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
-
-  const EmptyState = ({ msg = "No data available" }) => (
-    <div style={{ textAlign: "center", padding: "48px 24px", color: "#94a3b8", fontSize: 15 }}>{msg}</div>
-  );
-
-  // ─── Render ──────────────────────────────────────────────────────────────────
-
+  /* ── Render ── */
   return (
-    <div style={styles.container}>
+    <div style={{ minHeight: "100vh", backgroundColor: C.bg, fontFamily: "'Inter',sans-serif" }}>
+      <style>{GLOBAL_CSS}</style>
 
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.headerTitle}>Manager Dashboard</h1>
-          <p style={styles.headerSubtitle}>Real-time monitoring & advanced analytics</p>
+      {/* ════════════════════════════════ TOPBAR ════ */}
+      <div style={{
+        background: C.surface,
+        borderBottom: `1px solid ${C.border}`,
+        padding: "0 32px", height: 52,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        {/* Left: brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 6, height: 6, borderRadius: "50%", background: C.greenText,
+            animation: "mgr-pulse 2.5s ease-in-out infinite",
+          }} />
+          <span style={{
+            fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: 600,
+            color: C.ink, letterSpacing: "-0.01em",
+          }}>
+            Manager Dashboard
+          </span>
+          <span style={{ fontSize: 11, color: C.inkMid }}>· Operations Centre</span>
         </div>
-        <div style={styles.headerRight}>
-          <div style={styles.refreshIndicator}>
-            <div style={styles.refreshDot} />
-            Auto-refresh: ON
-          </div>
+
+        {/* Right: spinner + refresh */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {(loading.activeAgents || loading.analytics) && (
+            <div style={{
+              width: 14, height: 14,
+              border: `1.5px solid ${C.borderLight}`,
+              borderTop: `1.5px solid ${C.accentLight}`,
+              borderRadius: "50%",
+              animation: "mgr-spin .8s linear infinite",
+            }} />
+          )}
+          <button
+            className="mgr-btn-ghost"
+            onClick={() => { fetchActiveAgents(); fetchAnalytics(); }}
+          >
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Tabs — now includes Users */}
-      <div style={styles.navTabs}>
-        {[
-          { id: "overview",  label: "📊 Overview" },
-          { id: "active",    label: `🟢 Active Agents (${activeAgents.length})` },
-          { id: "shifts",    label: "📋 All Shifts" },
-          { id: "analytics", label: "📈 Advanced Analytics" },
-          { id: "users",     label: "👥 Manage Users" },   // ← new tab
-        ].map(tab => (
+      {/* ════════════════════════════════ NAV TABS ════ */}
+      <div style={{
+        background: C.surface,
+        borderBottom: `1px solid ${C.border}`,
+        display: "flex", padding: "0 32px",
+        overflowX: "auto",
+      }}>
+        {TABS.map(tab => (
           <button
             key={tab.id}
-            style={{ ...styles.navTab, ...(activeView === tab.id ? styles.navTabActive : {}) }}
+            className={`mgr-tab${activeView === tab.id ? " mgr-tab-active" : ""}`}
             onClick={() => setActiveView(tab.id)}
           >
             {tab.label}
@@ -211,164 +834,234 @@ function ManagerDashboard() {
         ))}
       </div>
 
-      {/* Content area */}
-      <div style={activeView === "analytics" ? { ...styles.content, padding: 0, maxWidth: "none" } : styles.content}>
+      {/* ════════════════════════════════ CONTENT ════ */}
+      <div style={
+        activeView === "analytics"
+          ? { padding: 0 }
+          : { padding: "28px 32px", maxWidth: 1400, margin: "0 auto" }
+      }>
 
-        {/* ══ OVERVIEW ══ */}
+        {/* ════ OVERVIEW ════ */}
         {activeView === "overview" && (
-          <div>
-            {errors.analytics && <ErrorBanner message={errors.analytics} />}
-            {loading.analytics && !analytics ? <Spinner /> : analytics ? (
+          <div style={{ animation: "mgr-rise .4s ease" }}>
+            <ErrorBanner message={errors.analytics} />
+
+            {loading.analytics && !analytics ? (
+              <Spinner />
+            ) : analytics ? (
               <>
-                <h2 style={styles.sectionTitle}>Today's Overview</h2>
-                <div style={styles.statsGrid}>
-                  {[
-                    { icon: "🟢", val: analytics.active_now || 0,                   label: "Active Now" },
-                    { icon: "👥", val: analytics.today?.agents_active || 0,          label: "Agents Today" },
-                    { icon: "📊", val: analytics.today?.cases_triaged || 0,          label: "Cases Triaged" },
-                    { icon: "⚡", val: analytics.avg_productivity || 0,              label: "Avg Cases/Hour" },
-                  ].map(s => (
-                    <div key={s.label} style={styles.statCard}>
-                      <div style={styles.statIcon}>{s.icon}</div>
-                      <div style={styles.statValue}>{s.val}</div>
-                      <div style={styles.statLabel}>{s.label}</div>
-                    </div>
-                  ))}
+                {/* Today */}
+                <SectionHeading title="Today's Overview" sub="Live data — refreshes every 30 seconds" />
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                  gap: 14, marginBottom: 32,
+                }}>
+                  <KpiCard label="Active Now"     value={analytics.active_now              ?? 0} color={C.greenText}   delay={0}    />
+                  <KpiCard label="Agents Today"   value={analytics.today?.agents_active    ?? 0} color={C.accentLight} delay={0.05} />
+                  <KpiCard label="Cases Triaged"  value={analytics.today?.cases_triaged    ?? 0} color={C.greenText}   delay={0.10} />
+                  <KpiCard label="Avg Cases / hr" value={analytics.avg_productivity        ?? 0} color={C.amberText}   delay={0.15} />
+                  <KpiCard label="Alerts Today"   value={analytics.alerts_today            ?? 0} color={C.redText}     delay={0.20} />
+                  <KpiCard label="Tickets Today"  value={analytics.tickets_today           ?? 0} color={C.amberText}   delay={0.25} />
                 </div>
 
-                <h2 style={styles.sectionTitle}>This Week</h2>
-                <div style={styles.statsGrid}>
-                  {[
-                    { icon: "👥", val: analytics.week?.agents_active || 0,  label: "Active Agents" },
-                    { icon: "📋", val: analytics.week?.total_shifts || 0,   label: "Total Shifts" },
-                    { icon: "✅", val: analytics.week?.cases_triaged || 0,  label: "Cases Triaged" },
-                    { icon: "🚨", val: analytics.alerts_today || 0,         label: "Alerts Today" },
-                  ].map(s => (
-                    <div key={s.label} style={styles.statCard}>
-                      <div style={styles.statIcon}>{s.icon}</div>
-                      <div style={styles.statValue}>{s.val}</div>
-                      <div style={styles.statLabel}>{s.label}</div>
-                    </div>
-                  ))}
+                {/* This week */}
+                <SectionHeading title="This Week" sub="Monday – today" />
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                  gap: 14, marginBottom: 32,
+                }}>
+                  <KpiCard label="Active Agents" value={analytics.week?.agents_active ?? 0} color={C.accentLight} delay={0}    />
+                  <KpiCard label="Total Shifts"  value={analytics.week?.total_shifts  ?? 0} color={C.indigo}      delay={0.05} />
+                  <KpiCard label="Cases Triaged" value={analytics.week?.cases_triaged ?? 0} color={C.greenText}   delay={0.10} />
                 </div>
 
-                <h2 style={styles.sectionTitle}>This Month</h2>
-                <div style={styles.statsGrid}>
-                  {[
-                    { icon: "👥", val: analytics.month?.agents_active || 0, label: "Active Agents" },
-                    { icon: "📋", val: analytics.month?.total_shifts || 0,  label: "Total Shifts" },
-                    { icon: "✅", val: analytics.month?.cases_triaged || 0, label: "Cases Triaged" },
-                    { icon: "🎫", val: analytics.tickets_today || 0,        label: "Tickets Today" },
-                  ].map(s => (
-                    <div key={s.label} style={styles.statCard}>
-                      <div style={styles.statIcon}>{s.icon}</div>
-                      <div style={styles.statValue}>{s.val}</div>
-                      <div style={styles.statLabel}>{s.label}</div>
-                    </div>
-                  ))}
+                {/* This month */}
+                <SectionHeading title="This Month" sub="Month-to-date" />
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                  gap: 14,
+                }}>
+                  <KpiCard label="Active Agents" value={analytics.month?.agents_active ?? 0} color={C.accentLight} delay={0}    />
+                  <KpiCard label="Total Shifts"  value={analytics.month?.total_shifts  ?? 0} color={C.indigo}      delay={0.05} />
+                  <KpiCard label="Cases Triaged" value={analytics.month?.cases_triaged ?? 0} color={C.greenText}   delay={0.10} />
                 </div>
               </>
-            ) : <EmptyState msg="No analytics data available" />}
+            ) : (
+              <EmptyState message="No analytics data available" />
+            )}
           </div>
         )}
 
-        {/* ══ ACTIVE AGENTS ══ */}
+        {/* ════ ACTIVE AGENTS ════ */}
         {activeView === "active" && (
-          <div>
-            <h2 style={styles.sectionTitle}>Currently Active Agents</h2>
-            {errors.activeAgents && <ErrorBanner message={errors.activeAgents} />}
-            {loading.activeAgents && !activeAgents.length ? <Spinner /> : activeAgents.length > 0 ? (
-              <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                  <thead>
+          <div style={{ animation: "mgr-rise .4s ease" }}>
+            <SectionHeading
+              title="Active Agents"
+              sub="Agents currently logged in to a live shift"
+            />
+            <ErrorBanner message={errors.activeAgents} />
+
+            {loading.activeAgents && !activeAgents.length ? (
+              <Spinner />
+            ) : activeAgents.length > 0 ? (
+              <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead className="mgr-thead">
                     <tr>
-                      {["Agent ID","Login Time","Hours Active","Cases Triaged","Actions"].map(h => (
-                        <th key={h} style={styles.th}>{h}</th>
+                      {["Agent ID", "Login Time", "Hours Active", "Cases Triaged", "Actions"].map(h => (
+                        <th key={h}>{h}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="mgr-tbody">
                     {activeAgents.map(agent => (
-                      <tr key={agent.shift_id} style={styles.tr}>
-                        <td style={styles.td}>
-                          <span style={{ fontFamily: "monospace", fontSize: 12 }}>
-                            {agent.agent_id?.substring(0, 10) || "Unknown"}…
+                      <tr key={agent.shift_id ?? agent.agent_id}>
+                        <td>
+                          <span style={{
+                            fontFamily: "'JetBrains Mono',monospace",
+                            fontSize: 12, color: C.accentLight,
+                          }}>
+                            {agent.agent_id ? `${agent.agent_id.slice(0, 14)}…` : "Unknown"}
                           </span>
                         </td>
-                        <td style={styles.td}>{formatDate(agent.login_time)}</td>
-                        <td style={styles.td}>
-                          <span style={styles.activeStatus}>{formatDuration(agent.hours_active)}</span>
+                        <td style={{ color: C.inkMid, fontSize: 12 }}>
+                          {formatDate(agent.login_time)}
                         </td>
-                        <td style={styles.td}>{agent.triaged_count || 0}</td>
-                        <td style={styles.td}>
-                          <button style={styles.actionButton} onClick={() => fetchAgentStats(agent.agent_id)}>
-                            View Stats
-                          </button>
-                          <button
-                            style={{ ...styles.actionButton, marginLeft: 8, backgroundColor: "#4338ca" }}
-                            onClick={() => fetchShiftDetails(agent.shift_id)}
-                          >
-                            Details
-                          </button>
+                        <td>
+                          <span className="mgr-badge-active">
+                            <ActiveDot />
+                            {formatDuration(agent.hours_active)}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600, color: C.greenText }}>
+                          {agent.triaged_count ?? 0}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              className="mgr-btn"
+                              onClick={() => fetchAgentStats(agent.agent_id)}
+                            >
+                              View Stats
+                            </button>
+                            <button
+                              className="mgr-btn-indigo"
+                              onClick={() => fetchShiftDetails(agent.shift_id)}
+                            >
+                              Details
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ) : <EmptyState msg="No active agents at the moment" />}
+            ) : (
+              <EmptyState message="No agents are currently active" />
+            )}
           </div>
         )}
 
-        {/* ══ ALL SHIFTS ══ */}
+        {/* ════ ALL SHIFTS ════ */}
         {activeView === "shifts" && (
-          <div>
-            <h2 style={styles.sectionTitle}>All Shifts</h2>
+          <div style={{ animation: "mgr-rise .4s ease" }}>
+            <SectionHeading
+              title="All Shifts"
+              sub="Browse and filter all recorded shifts"
+            />
 
-            <div style={styles.filtersBar}>
-              <input type="date" style={styles.filterInput} value={filters.startDate}
-                onChange={e => setFilters(f => ({ ...f, startDate: e.target.value }))} />
-              <input type="date" style={styles.filterInput} value={filters.endDate}
-                onChange={e => setFilters(f => ({ ...f, endDate: e.target.value }))} />
-              <input type="text" style={styles.filterInput} value={filters.agentId}
+            {/* Filter bar */}
+            <div style={{
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderRadius: 10, padding: "14px 18px",
+              display: "flex", gap: 10, flexWrap: "wrap",
+              alignItems: "center", marginBottom: 20,
+            }}>
+              <input
+                type="date"
+                className="mgr-input"
+                value={filters.startDate}
+                onChange={e => setFilters(f => ({ ...f, startDate: e.target.value }))}
+                style={{ minWidth: 140 }}
+              />
+              <input
+                type="date"
+                className="mgr-input"
+                value={filters.endDate}
+                onChange={e => setFilters(f => ({ ...f, endDate: e.target.value }))}
+                style={{ minWidth: 140 }}
+              />
+              <input
+                type="text"
+                className="mgr-input"
+                placeholder="Filter by Agent ID…"
+                value={filters.agentId}
                 onChange={e => setFilters(f => ({ ...f, agentId: e.target.value }))}
-                placeholder="Filter by Agent ID" />
-              <button style={styles.clearFiltersButton}
-                onClick={() => setFilters({ startDate: "", endDate: "", agentId: "" })}>
-                Clear Filters
+                style={{ flex: 1, minWidth: 180 }}
+              />
+              <button
+                className="mgr-btn-ghost"
+                onClick={() => setFilters({ startDate: "", endDate: "", agentId: "" })}
+              >
+                Clear
               </button>
             </div>
 
-            {errors.shifts && <ErrorBanner message={errors.shifts} />}
-            {loading.shifts && !allShifts.length ? <Spinner /> : allShifts.length > 0 ? (
-              <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                  <thead>
+            <ErrorBanner message={errors.shifts} />
+
+            {loading.shifts && !allShifts.length ? (
+              <Spinner />
+            ) : allShifts.length > 0 ? (
+              <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead className="mgr-thead">
                     <tr>
-                      {["Agent ID","Login Time","Logout Time","Duration","Cases Triaged","Status","Actions"].map(h => (
-                        <th key={h} style={styles.th}>{h}</th>
+                      {["Agent ID", "Login", "Logout", "Duration", "Triaged", "Status", "Actions"].map(h => (
+                        <th key={h}>{h}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="mgr-tbody">
                     {allShifts.map(shift => (
-                      <tr key={shift.id} style={styles.tr}>
-                        <td style={styles.td}>
-                          <span style={{ fontFamily: "monospace", fontSize: 12 }}>
-                            {shift.agent_id?.substring(0, 10) || "Unknown"}…
+                      <tr key={shift.id}>
+                        <td>
+                          <span style={{
+                            fontFamily: "'JetBrains Mono',monospace",
+                            fontSize: 12, color: C.accentLight,
+                          }}>
+                            {shift.agent_id ? `${shift.agent_id.slice(0, 14)}…` : "Unknown"}
                           </span>
                         </td>
-                        <td style={styles.td}>{formatDate(shift.login_time)}</td>
-                        <td style={styles.td}>{shift.logout_time ? formatDate(shift.logout_time) : "—"}</td>
-                        <td style={styles.td}>{formatDuration(shift.duration_hours)}</td>
-                        <td style={styles.td}>{shift.triaged_count || 0}</td>
-                        <td style={styles.td}>
-                          <span style={shift.logout_time ? styles.completedStatus : styles.activeStatus}>
-                            {shift.logout_time ? "Completed" : "Active"}
-                          </span>
+                        <td style={{ color: C.inkMid, fontSize: 12 }}>
+                          {formatDate(shift.login_time)}
                         </td>
-                        <td style={styles.td}>
-                          <button style={styles.actionButton} onClick={() => fetchShiftDetails(shift.id)}>
+                        <td style={{ color: C.inkMid, fontSize: 12 }}>
+                          {shift.logout_time ? formatDate(shift.logout_time) : "—"}
+                        </td>
+                        <td style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>
+                          {formatDuration(shift.duration_hours)}
+                        </td>
+                        <td style={{ fontWeight: 600, color: C.greenText }}>
+                          {shift.triaged_count ?? 0}
+                        </td>
+                        <td>
+                          {shift.logout_time ? (
+                            <span className="mgr-badge-done">Completed</span>
+                          ) : (
+                            <span className="mgr-badge-active">
+                              <ActiveDot /> Active
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            className="mgr-btn"
+                            onClick={() => fetchShiftDetails(shift.id)}
+                          >
                             View Details
                           </button>
                         </td>
@@ -377,11 +1070,13 @@ function ManagerDashboard() {
                   </tbody>
                 </table>
               </div>
-            ) : <EmptyState msg="No shifts found. Try adjusting the filters." />}
+            ) : (
+              <EmptyState message="No shifts found — try adjusting the filters" />
+            )}
           </div>
         )}
 
-        {/* ══ ADVANCED ANALYTICS — delegated to AdvancedAnalytics component ══ */}
+        {/* ════ ADVANCED ANALYTICS ════ */}
         {activeView === "analytics" && (
           <AdvancedAnalytics
             data={advancedAnalytics}
@@ -392,121 +1087,35 @@ function ManagerDashboard() {
           />
         )}
 
-        {/* ══ USER MANAGEMENT — delegated to UserManagement component ══ */}
+        {/* ════ USER MANAGEMENT ════ */}
         {activeView === "users" && (
           <UserManagement api={API} />
         )}
 
       </div>
 
-      {/* ══ SHIFT DETAILS MODAL ══ */}
-      {shiftDetails && (
-        <div style={styles.modalOverlay} onClick={() => setShiftDetails(null)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Shift Details</h2>
-              <button style={styles.modalClose} onClick={() => setShiftDetails(null)}>×</button>
-            </div>
-            <div style={styles.modalBody}>
-              {loading.shiftDetails ? <Spinner /> : errors.shiftDetails ? (
-                <ErrorBanner message={errors.shiftDetails} />
-              ) : (
-                <>
-                  <div style={styles.modalSection}><strong>Agent:</strong> {shiftDetails.agent_id}</div>
-                  <div style={styles.modalSection}><strong>Start:</strong> {formatDate(shiftDetails.login_time)}</div>
-                  {shiftDetails.logout_time && (
-                    <div style={styles.modalSection}><strong>End:</strong> {formatDate(shiftDetails.logout_time)}</div>
-                  )}
-                  <div style={styles.modalSection}><strong>Triaged Cases:</strong> {shiftDetails.triaged_count || 0}</div>
-
-                  {shiftDetails.tickets?.length > 0 && (
-                    <div style={styles.modalSection}>
-                      <h3 style={styles.modalSectionTitle}>Tickets ({shiftDetails.tickets.length})</h3>
-                      {shiftDetails.tickets.map((t, i) => (
-                        <div key={i} style={styles.modalItem}>
-                          <strong>#{t.number}</strong> — {t.description || "No description"}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {shiftDetails.alerts?.length > 0 && (
-                    <div style={styles.modalSection}>
-                      <h3 style={styles.modalSectionTitle}>Alerts ({shiftDetails.alerts.length})</h3>
-                      {shiftDetails.alerts.map((a, i) => (
-                        <div key={i} style={styles.modalItem}>
-                          <strong>{a.monitor}</strong> — {a.type}
-                          {a.comment && <div style={styles.modalItemDesc}>{a.comment}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {shiftDetails.incidents?.length > 0 && (
-                    <div style={styles.modalSection}>
-                      <h3 style={styles.modalSectionTitle}>Incidents ({shiftDetails.incidents.length})</h3>
-                      {shiftDetails.incidents.map((inc, i) => (
-                        <div key={i} style={styles.modalItem}>{inc.description}</div>
-                      ))}
-                    </div>
-                  )}
-                  {shiftDetails.adhoc_tasks?.length > 0 && (
-                    <div style={styles.modalSection}>
-                      <h3 style={styles.modalSectionTitle}>Ad-hoc Tasks ({shiftDetails.adhoc_tasks.length})</h3>
-                      {shiftDetails.adhoc_tasks.map((t, i) => (
-                        <div key={i} style={styles.modalItem}>{t.task}</div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* ════ SHIFT DETAILS MODAL ════ */}
+      {shiftDetailOpen && (
+        <ShiftDetailsModal
+          shiftDetails={shiftDetails}
+          isLoading={loading.shiftDetails}
+          error={errors.shiftDetails}
+          onClose={closeShiftDetails}
+          formatDate={formatDate}
+          formatDuration={formatDuration}
+        />
       )}
 
-      {/* ══ AGENT STATS MODAL ══ */}
-      {agentStats && selectedAgent && (
-        <div style={styles.modalOverlay} onClick={() => { setAgentStats(null); setSelectedAgent(null); }}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Agent Statistics</h2>
-              <button style={styles.modalClose} onClick={() => { setAgentStats(null); setSelectedAgent(null); }}>×</button>
-            </div>
-            <div style={styles.modalBody}>
-              {loading.agentStats ? <Spinner /> : errors.agentStats ? (
-                <ErrorBanner message={errors.agentStats} />
-              ) : (
-                <>
-                  <div style={styles.modalSection}><strong>Agent ID:</strong> {agentStats.agent_id}</div>
-                  <div style={styles.modalSection}><strong>Total Shifts:</strong> {agentStats.total_shifts || 0}</div>
-                  <div style={styles.modalSection}><strong>Total Cases Triaged:</strong> {agentStats.total_triaged || 0}</div>
-                  <div style={styles.modalSection}><strong>Average Per Shift:</strong> {agentStats.avg_per_shift || 0}</div>
-
-                  {agentStats.recent_shifts?.length > 0 && (
-                    <div style={styles.modalSection}>
-                      <h3 style={styles.modalSectionTitle}>Recent Shifts</h3>
-                      <table style={styles.table}>
-                        <thead>
-                          <tr>
-                            {["Login","Duration","Triaged"].map(h => <th key={h} style={styles.th}>{h}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {agentStats.recent_shifts.map(s => (
-                            <tr key={s.id} style={styles.tr}>
-                              <td style={styles.td}>{formatDate(s.login_time)}</td>
-                              <td style={styles.td}>{formatDuration(s.duration_hours)}</td>
-                              <td style={styles.td}>{s.triaged_count || 0}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* ════ AGENT STATS MODAL ════ */}
+      {selectedAgentId !== null && (
+        <AgentStatsModal
+          agentStats={agentStats}
+          isLoading={loading.agentStats}
+          error={errors.agentStats}
+          onClose={closeAgentStats}
+          formatDate={formatDate}
+          formatDuration={formatDuration}
+        />
       )}
 
     </div>

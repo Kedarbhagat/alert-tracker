@@ -121,7 +121,7 @@ function LineAreaChart({ datasets, height = 200, showGrid = true, labels }) {
   const maxV = Math.max(...allVals, 1);
   const minV = Math.min(...allVals, 0);
   const range = maxV - minV || 1;
-  const toX = (i, n) => PAD.l + (i / Math.max(n - 1, 1)) * iW;
+  const toX = (i, n) => n <= 1 ? PAD.l + iW / 2 : PAD.l + (i / (n - 1)) * iW;
   const toY = (v) => PAD.t + iH - ((v - minV) / range) * iH;
   const makePath = (vals) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i, vals.length).toFixed(1)},${toY(v).toFixed(1)}`).join(" ");
   const makeArea = (vals, path) => `${path} L${toX(vals.length-1,vals.length).toFixed(1)},${(PAD.t+iH).toFixed(1)} L${PAD.l},${(PAD.t+iH).toFixed(1)} Z`;
@@ -651,7 +651,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                 </div>
               ))}
             </div>
-            {performance_trends.length>1
+            {performance_trends.length>0
               ? <LineAreaChart
                   datasets={[
                     {name:"Triaged",values:triagedVals,color:C.accentLight},
@@ -678,7 +678,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                   </div>
                 ))}
               </div>
-              {volDates.length>1
+              {volDates.length>0
                 ? <LineAreaChart
                     datasets={[
                       {name:"Tickets",  values:tickVals,color:C.amberText},
