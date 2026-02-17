@@ -1175,12 +1175,182 @@ def get_advanced_analytics():
             return_connection(conn)
 
 
+# ========================================
+# USER MANAGEMENT ENDPOINTS
+# ========================================
+# Run this SQL ONCE in your Supabase SQL editor before using these endpoints:
+#
+#   CREATE TABLE IF NOT EXISTS agents (
+#       id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+#       name       VARCHAR(120) NOT NULL,
+#       created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+#   );
+
+@app.route("/manager/users", methods=["GET", "OPTIONS"])
+def list_users():
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                a.id::text,
+                a.name,
+                a.email,
+                a.role,
+                a.created_at,
+                COUNT(s.id) AS total_shifts,
+                EXISTS (
+                    SELECT 1 FROM shifts
+                    WHERE shifts.agent_id::text = a.id::text
+                    AND shifts.logout_time IS NULL
+                ) AS is_active
+            FROM agents a
+            LEFT JOIN shifts s ON s.agent_id::text = a.id::text
+            GROUP BY a.id, a.name, a.email, a.role, a.created_at
+            ORDER BY a.created_at DESC;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+
+        users = [
+            {
+                "id":           r[0],
+                "name":         r[1],
+                "email":        r[2],
+                "role":         r[3],
+                "created_at":   r[4].isoformat() if r[4] else None,
+                "total_shifts": int(r[5]),
+                "is_active":    bool(r[6]),
+            }
+            for r in rows
+        ]
+        return jsonify({"users": users})
+    except Exception as e:
+        print(f"❌ Error in list_users: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
+
+@app.route("/manager/users", methods=["POST", "OPTIONS"])
+def create_user():
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        name  = (data.get("name")  or "").strip()
+        email = (data.get("email") or "").strip()
+        role  = (data.get("role")  or "agent").strip()
+
+        if not name:
+            return jsonify({"error": "name is required"}), 400
+        if not email:
+            return jsonify({"error": "email is required"}), 400
+        if len(name) > 120:
+            return jsonify({"error": "name must be 120 characters or fewer"}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO agents (name, email, role)
+            VALUES (%s, %s, %s)
+            RETURNING id::text, name, email, role, created_at;
+        """, (name, email, role))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+
+        new_user = {
+            "id":         row[0],
+            "name":       row[1],
+            "email":      row[2],
+            "role":       row[3],
+            "created_at": row[4].isoformat() if row[4] else None,
+        }
+        print(f"✅ New agent created: {new_user['name']} ({new_user['email']})  UUID={new_user['id']}")
+        return jsonify({"message": "Agent created successfully", "user": new_user}), 201
+    except Exception as e:
+        print(f"❌ Error in create_user: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
+
+@app.route("/manager/users/<agent_id>", methods=["DELETE", "OPTIONS"])
+def delete_user(agent_id):
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        import uuid as _uuid
+        try:
+            _uuid.UUID(agent_id)
+        except (ValueError, AttributeError):
+            return jsonify({"error": "Invalid agent_id format"}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+
+        cur = conn.cursor()
+
+        # Refuse if agent currently has an active shift
+        cur.execute("""
+            SELECT COUNT(*) FROM shifts
+            WHERE agent_id = %s AND logout_time IS NULL;
+        """, (agent_id,))
+        if cur.fetchone()[0] > 0:
+            cur.close()
+            return jsonify({"error": "Cannot delete an agent who is currently in an active shift"}), 409
+
+        # Hard delete — fetch name first for the response message
+        cur.execute("SELECT name FROM agents WHERE id::text = %s;", (agent_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            return jsonify({"error": "Agent not found"}), 404
+
+        agent_name = row[0]
+        cur.execute("DELETE FROM agents WHERE id::text = %s;", (agent_id,))
+        conn.commit()
+        cur.close()
+
+        print(f"🗑️  Agent deleted: {agent_name}  UUID={agent_id}")
+        return jsonify({"message": f"Agent '{agent_name}' deleted successfully"})
+    except Exception as e:
+        print(f"❌ Error in delete_user: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
+
 if __name__ == "__main__":
     initialize_pool()
     if connection_pool:
         print("🚀 Unified backend starting on port 5000...")
         print("📊 Agent endpoints: /check-active-shift, /start-shift, etc.")
         print("📈 Manager endpoints: /manager/active-agents, /manager/analytics, etc.")
+        print("👥 User mgmt endpoints: /manager/users (GET, POST), /manager/users/<id> (DELETE)")
         app.run(debug=True, host="0.0.0.0", port=5000)
     else:
         print("❌ Failed to initialize connection pool")

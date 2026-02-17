@@ -1,14 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { styles } from "./styles";
 import ManagerDashboard from "./mngr_dash";                    // added import
 
 function App() {
-  const agents = [
-    { id: "7b6fc435-1587-4405-980a-b738991e7961", name: "Kedar" },
-    { id: "406df1b2-b360-426f-b2bb-18700752adba", name: "Nihal" },
-    { id: "PLACEHOLDER_UUID_3", name: "Agent 3" },
-    { id: "PLACEHOLDER_UUID_4", name: "Agent 4" }
-  ];
+  const [agents, setAgents]           = useState([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState(null);
+  // Agent the user clicked on — waiting for "Start Shift" confirmation
+  const [pendingAgent, setPendingAgent] = useState(null);
 
   const monitorOptions = [
     "Payments Monitor",
@@ -26,6 +25,24 @@ function App() {
   ];
 
   const API = "http://192.168.74.152:5000";  // Unified backend on port 5000
+
+  // Fetch agents from DB on mount
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        setAgentsLoading(true);
+        const res = await fetch(`${API}/manager/users`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = await res.json();
+        setAgents(d.users || []);
+      } catch (e) {
+        setAgentsError(e.message);
+      } finally {
+        setAgentsLoading(false);
+      }
+    };
+    loadAgents();
+  }, []);
 
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId] = useState(null);
@@ -74,42 +91,31 @@ function App() {
   }, [selectedAgent, shiftId, triagedCount]);
 
   // ---------------------------
-  // START SHIFT
+  // SELECT AGENT (shows confirmation screen)
   // ---------------------------
-  const handleSelectAgent = async (agent) => {
-    // Check if agent already has an active shift
+  const handleSelectAgent = (agent) => {
+    setPendingAgent(agent);
+  };
+
+  // ---------------------------
+  // START SHIFT (called after confirmation)
+  // ---------------------------
+  const handleStartShift = async () => {
+    if (!pendingAgent) return;
+    const agent = pendingAgent;
+
     const checkResponse = await fetch(`${API}/check-active-shift`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        agent_id: agent.id,
-        agent_name: agent.name  // Send agent name for UUID generation
-      }),
+      body: JSON.stringify({ agent_id: agent.id, agent_name: agent.name }),
     });
-
     const checkData = await checkResponse.json();
-    
-    // If backend generated a new UUID, show it to user
-    if (checkData.agent_id && checkData.agent_id !== agent.id) {
-      console.log("🆕 NEW UUID GENERATED!");
-      console.log(`📋 Copy this to your App.jsx agents array:`);
-      console.log(`{ id: "${checkData.agent_id}", name: "${agent.name}" }`);
-      alert(`New UUID generated for ${agent.name}!\n\nCheck browser console (F12) for the UUID to copy into your code.`);
-    }
-    
-    // Use the UUID from backend (either new or existing)
     const agentUUID = checkData.agent_id || agent.id;
 
     let shiftData;
     if (checkData.has_active_shift) {
-      // Resume existing shift
-      shiftData = {
-        shift_id: checkData.shift_id,
-        triaged_count: checkData.triaged_count,
-      };
-      alert("Resuming your active shift");
+      shiftData = { shift_id: checkData.shift_id, triaged_count: checkData.triaged_count };
     } else {
-      // Create new shift with the UUID
       const response = await fetch(`${API}/start-shift`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,6 +124,7 @@ function App() {
       shiftData = await response.json();
     }
 
+    setPendingAgent(null);
     setSelectedAgent(agent.name);
     setShiftId(shiftData.shift_id);
     setTriagedCount(shiftData.triaged_count || 0);
@@ -313,7 +320,7 @@ function App() {
       {showManager ? (
         <ManagerDashboard />
       ) : !selectedAgent ? (
-        // Login screen JSX
+        // Login screen — agents fetched from DB
         <div style={styles.loginWrapper}>
           <div style={styles.loginCard}>
             <div style={styles.logoSection}>
@@ -327,28 +334,118 @@ function App() {
               <h1 style={styles.loginTitle}>Shift Management System</h1>
               <p style={styles.loginSubtitle}>Select your profile to begin shift</p>
             </div>
-            
+
+            {agentsLoading && (
+              <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8" }}>
+                Loading agents…
+              </div>
+            )}
+            {agentsError && (
+              <div style={{ textAlign: "center", padding: "16px", color: "#dc2626", background: "#fee2e2", borderRadius: 8, marginBottom: 16 }}>
+                ⚠️ Could not load agents: {agentsError}
+              </div>
+            )}
+            {!agentsLoading && !agentsError && agents.length === 0 && (
+              <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8" }}>
+                No agents registered yet. Ask your manager to add agents.
+              </div>
+            )}
+
             <div style={styles.agentGrid}>
               {agents.map((agent) => (
                 <button
                   key={agent.id}
-                  style={styles.agentButton}
-                  onClick={() => handleSelectAgent(agent)}
+                  style={{
+                    ...styles.agentButton,
+                    opacity: agent.is_active ? 0.55 : 1,
+                    cursor: agent.is_active ? "not-allowed" : "pointer",
+                    position: "relative",
+                  }}
+                  onClick={() => !agent.is_active && handleSelectAgent(agent)}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#f8fafc";
-                    e.currentTarget.style.borderColor = "#1e40af";
+                    if (!agent.is_active) {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                      e.currentTarget.style.borderColor = "#1e40af";
+                    }
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = "white";
                     e.currentTarget.style.borderColor = "#e2e8f0";
                   }}
                 >
-                  <div style={styles.agentAvatar}>{agent.name.charAt(0)}</div>
+                  <div style={styles.agentAvatar}>{agent.name.charAt(0).toUpperCase()}</div>
                   <span style={styles.agentName}>{agent.name}</span>
+                  {agent.is_active && (
+                    <span style={{
+                      display: "block",
+                      fontSize: 11,
+                      color: "#16a34a",
+                      fontWeight: 600,
+                      marginTop: 4,
+                    }}>● In Shift</span>
+                  )}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* ── Confirm Start Shift modal ── */}
+          {pendingAgent && (
+            <div style={{
+              position: "fixed", inset: 0,
+              background: "rgba(15,23,42,0.5)",
+              backdropFilter: "blur(4px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 1000,
+            }} onClick={() => setPendingAgent(null)}>
+              <div style={{
+                background: "#fff", borderRadius: 16,
+                padding: "36px 40px", maxWidth: 400, width: "90%",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
+                textAlign: "center",
+              }} onClick={e => e.stopPropagation()}>
+                <div style={{
+                  width: 64, height: 64, borderRadius: "50%",
+                  background: "linear-gradient(135deg,#ede9fe,#ddd6fe)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 26, fontWeight: 700, color: "#6d28d9",
+                  margin: "0 auto 16px",
+                }}>
+                  {pendingAgent.name.charAt(0).toUpperCase()}
+                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>
+                  {pendingAgent.name}
+                </h2>
+                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>
+                  Ready to start your shift?
+                </p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    style={{
+                      flex: 1, padding: "11px 0",
+                      background: "#f1f5f9", color: "#475569",
+                      border: "none", borderRadius: 8,
+                      cursor: "pointer", fontWeight: 600, fontSize: 14,
+                    }}
+                    onClick={() => setPendingAgent(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    style={{
+                      flex: 1, padding: "11px 0",
+                      background: "linear-gradient(135deg,#7c3aed,#6d28d9)",
+                      color: "#fff", border: "none", borderRadius: 8,
+                      cursor: "pointer", fontWeight: 600, fontSize: 14,
+                    }}
+                    onClick={handleStartShift}
+                  >
+                    Start Shift
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : showSummary ? (
         // Summary screen JSX

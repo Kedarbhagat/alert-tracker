@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { managerStyles as styles } from "./mngr_styles";
 import AdvancedAnalytics from "./Advancedanalyticis";
+import UserManagement from "./UserManagement";   // ← new import
 
 function ManagerDashboard() {
   const API = "http://192.168.74.152:5000";
@@ -191,13 +192,14 @@ function ManagerDashboard() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — now includes Users */}
       <div style={styles.navTabs}>
         {[
           { id: "overview",  label: "📊 Overview" },
           { id: "active",    label: `🟢 Active Agents (${activeAgents.length})` },
           { id: "shifts",    label: "📋 All Shifts" },
           { id: "analytics", label: "📈 Advanced Analytics" },
+          { id: "users",     label: "👥 Manage Users" },   // ← new tab
         ].map(tab => (
           <button
             key={tab.id}
@@ -209,7 +211,7 @@ function ManagerDashboard() {
         ))}
       </div>
 
-      {/* Content area — analytics tab gets full bleed, rest gets normal padding */}
+      {/* Content area */}
       <div style={activeView === "analytics" ? { ...styles.content, padding: 0, maxWidth: "none" } : styles.content}>
 
         {/* ══ OVERVIEW ══ */}
@@ -388,6 +390,12 @@ function ManagerDashboard() {
             onRefresh={fetchAdvancedAnalytics}
           />
         )}
+
+        {/* ══ USER MANAGEMENT — delegated to UserManagement component ══ */}
+        {activeView === "users" && (
+          <UserManagement api={API} />
+        )}
+
       </div>
 
       {/* ══ SHIFT DETAILS MODAL ══ */}
