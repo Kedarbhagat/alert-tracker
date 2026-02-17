@@ -8,6 +8,8 @@ function App() {
   const [agentsError, setAgentsError] = useState(null);
   // Agent the user clicked on — waiting for "Start Shift" confirmation
   const [pendingAgent, setPendingAgent] = useState(null);
+  // ID of the agent who owns the current session on THIS browser
+  const [activeAgentId, setActiveAgentId] = useState(null);
 
   const monitorOptions = [
     "Payments Monitor",
@@ -64,31 +66,24 @@ function App() {
   const [summaryData, setSummaryData] = useState(null);
 
   // ---------------------------
-  // LOAD SESSION FROM LOCALSTORAGE ON MOUNT
+  // LOAD SESSION FROM LOCALSTORAGE ON MOUNT — auto-resume on reload
   // ---------------------------
-  useState(() => {
+  useEffect(() => {
     const savedSession = localStorage.getItem("activeShift");
     if (savedSession) {
-      const session = JSON.parse(savedSession);
-      setSelectedAgent(session.agentName);
-      setShiftId(session.shiftId);
-      setTriagedCount(session.triagedCount || 0);
+      try {
+        const session = JSON.parse(savedSession);
+        if (session.agentName && session.shiftId) {
+          setSelectedAgent(session.agentName);
+          setActiveAgentId(session.agentId || null);
+          setShiftId(session.shiftId);
+          setTriagedCount(session.triagedCount || 0);
+        }
+      } catch (e) {
+        localStorage.removeItem("activeShift");
+      }
     }
   }, []);
-
-  // ---------------------------
-  // SAVE SESSION TO LOCALSTORAGE WHENEVER IT CHANGES
-  // ---------------------------
-  useState(() => {
-    if (selectedAgent && shiftId) {
-      const session = {
-        agentName: selectedAgent,
-        shiftId: shiftId,
-        triagedCount: triagedCount,
-      };
-      localStorage.setItem("activeShift", JSON.stringify(session));
-    }
-  }, [selectedAgent, shiftId, triagedCount]);
 
   // ---------------------------
   // SELECT AGENT (shows confirmation screen)
@@ -126,8 +121,16 @@ function App() {
 
     setPendingAgent(null);
     setSelectedAgent(agent.name);
+    setActiveAgentId(agent.id);
     setShiftId(shiftData.shift_id);
     setTriagedCount(shiftData.triaged_count || 0);
+    // Persist session so reload auto-resumes
+    localStorage.setItem("activeShift", JSON.stringify({
+      agentName: agent.name,
+      agentId: agent.id,
+      shiftId: shiftData.shift_id,
+      triagedCount: shiftData.triaged_count || 0,
+    }));
   };
 
   // ---------------------------
@@ -289,6 +292,7 @@ function App() {
     setShowSummary(false);
     setSummaryData(null);
     setSelectedAgent(null);
+    setActiveAgentId(null);
     setShiftId(null);
     setTriagedCount(0);
     setTickets([]);
@@ -357,13 +361,19 @@ function App() {
                   key={agent.id}
                   style={{
                     ...styles.agentButton,
-                    opacity: agent.is_active ? 0.55 : 1,
-                    cursor: agent.is_active ? "not-allowed" : "pointer",
+                    opacity: (agent.is_active && agent.id !== activeAgentId) ? 0.45 : 1,
+                    cursor: (agent.is_active && agent.id !== activeAgentId) ? "not-allowed" : "pointer",
                     position: "relative",
+                    outline: (agent.is_active && agent.id === activeAgentId) ? "2px solid #7c3aed" : "none",
                   }}
-                  onClick={() => !agent.is_active && handleSelectAgent(agent)}
+                  onClick={() => {
+                    const isMyShift = agent.is_active && agent.id === activeAgentId;
+                    const blockedByOther = agent.is_active && agent.id !== activeAgentId;
+                    if (!blockedByOther) handleSelectAgent(agent);
+                  }}
                   onMouseEnter={(e) => {
-                    if (!agent.is_active) {
+                    const blockedByOther = agent.is_active && agent.id !== activeAgentId;
+                    if (!blockedByOther) {
                       e.currentTarget.style.backgroundColor = "#f8fafc";
                       e.currentTarget.style.borderColor = "#1e40af";
                     }
@@ -379,10 +389,12 @@ function App() {
                     <span style={{
                       display: "block",
                       fontSize: 11,
-                      color: "#16a34a",
+                      color: agent.id === activeAgentId ? "#7c3aed" : "#16a34a",
                       fontWeight: 600,
                       marginTop: 4,
-                    }}>● In Shift</span>
+                    }}>
+                      {agent.id === activeAgentId ? "↩ Resume Shift" : "● In Shift"}
+                    </span>
                   )}
                 </button>
               ))}
@@ -417,7 +429,9 @@ function App() {
                   {pendingAgent.name}
                 </h2>
                 <p style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>
-                  Ready to start your shift?
+                  {pendingAgent?.is_active && pendingAgent?.id === activeAgentId
+                    ? "Resume your active shift?"
+                    : "Ready to start your shift?"}
                 </p>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
@@ -440,7 +454,9 @@ function App() {
                     }}
                     onClick={handleStartShift}
                   >
-                    Start Shift
+                    {pendingAgent?.is_active && pendingAgent?.id === activeAgentId
+                      ? "Resume Shift"
+                      : "Start Shift"}
                   </button>
                 </div>
               </div>

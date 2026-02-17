@@ -861,17 +861,27 @@ def get_advanced_analytics():
             for p in cur.fetchall()
         ]
         
-        # Agent Rankings
+        # Agent Rankings (with ticket, alert, incident, adhoc counts)
         cur.execute("""
             SELECT s.agent_id,
-                   COUNT(*) as shift_count,
+                   COUNT(DISTINCT s.id) as shift_count,
                    COALESCE(SUM(s.triaged_count), 0) as total_triaged,
                    COALESCE(AVG(s.triaged_count), 0) as avg_triaged,
-                   COALESCE(AVG(s.triaged_count / NULLIF(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600, 0)), 0) as productivity_rate
+                   COALESCE(AVG(s.triaged_count / NULLIF(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600, 0)), 0) as productivity_rate,
+                   COUNT(DISTINCT t.id) as total_tickets,
+                   COUNT(DISTINCT a.id) as total_alerts,
+                   COUNT(DISTINCT i.id) as total_incidents,
+                   COUNT(DISTINCT ad.id) as total_adhoc,
+                   COALESCE(AVG(s.triaged_count), 0) as avg_triaged_per_shift,
+                   COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600), 0) as avg_shift_hours
             FROM shifts s
+            LEFT JOIN tickets t ON t.shift_id = s.id
+            LEFT JOIN alerts a ON a.shift_id = s.id
+            LEFT JOIN incident_status i ON i.shift_id = s.id
+            LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
             WHERE s.login_time >= CURRENT_DATE - INTERVAL '30 days'
             GROUP BY s.agent_id
-            HAVING COUNT(*) >= 3
+            HAVING COUNT(DISTINCT s.id) >= 1
             ORDER BY productivity_rate DESC;
         """)
         agent_rankings = [
@@ -881,7 +891,13 @@ def get_advanced_analytics():
                 "shift_count": r[1],
                 "total_triaged": r[2] or 0,
                 "avg_triaged": round(float(r[3] or 0), 2),
-                "productivity_rate": round(float(r[4] or 0), 2)
+                "productivity_rate": round(float(r[4] or 0), 2),
+                "total_tickets": int(r[5] or 0),
+                "total_alerts": int(r[6] or 0),
+                "total_incidents": int(r[7] or 0),
+                "total_adhoc": int(r[8] or 0),
+                "avg_triaged_per_shift": round(float(r[9] or 0), 2),
+                "avg_shift_hours": round(float(r[10] or 0), 2)
             }
             for idx, r in enumerate(cur.fetchall())
         ]
@@ -1057,7 +1073,7 @@ def get_advanced_analytics():
             WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
             AND logout_time IS NOT NULL
             GROUP BY agent_id
-            HAVING COUNT(*) >= 3
+            HAVING COUNT(*) >= 1
             ORDER BY triaged_variance;
         """)
         agent_consistency = [
