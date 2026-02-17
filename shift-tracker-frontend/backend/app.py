@@ -889,7 +889,7 @@ def get_advanced_analytics():
                 "rank": idx + 1,
                 "agent_id": str(r[0]),
                 "shift_count": r[1],
-                "total_triaged": r[2] or 0,
+                "total_triaged": int(r[2] or 0),
                 "avg_triaged": round(float(r[3] or 0), 2),
                 "productivity_rate": round(float(r[4] or 0), 2),
                 "total_tickets": int(r[5] or 0),
@@ -1185,6 +1185,112 @@ def get_advanced_analytics():
         })
     except Exception as e:
         print(f"❌ Error in get_advanced_analytics: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
+
+# ========================================
+# AGENT DETAIL ENDPOINT
+# ========================================
+
+@app.route("/manager/agent-detail/<agent_id>", methods=["GET", "OPTIONS"])
+def get_agent_detail(agent_id):
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT a.alert_type, COUNT(*) as count
+            FROM alerts a JOIN shifts s ON s.id = a.shift_id
+            WHERE s.agent_id = %s AND s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY a.alert_type ORDER BY count DESC LIMIT 10;
+        """, (agent_id,))
+        alert_breakdown = [{"alert_type": r[0], "count": r[1]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT a.monitor, COUNT(*) as count
+            FROM alerts a JOIN shifts s ON s.id = a.shift_id
+            WHERE s.agent_id = %s AND s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY a.monitor ORDER BY count DESC LIMIT 10;
+        """, (agent_id,))
+        monitor_breakdown = [{"monitor": r[0], "count": r[1]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT DATE(t.created_at), COUNT(*) FROM tickets t
+            JOIN shifts s ON s.id = t.shift_id
+            WHERE s.agent_id = %s AND t.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(t.created_at) ORDER BY 1;
+        """, (agent_id,))
+        ticket_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT DATE(a.created_at), COUNT(*) FROM alerts a
+            JOIN shifts s ON s.id = a.shift_id
+            WHERE s.agent_id = %s AND a.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(a.created_at) ORDER BY 1;
+        """, (agent_id,))
+        alert_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT DATE(i.created_at), COUNT(*) FROM incident_status i
+            JOIN shifts s ON s.id = i.shift_id
+            WHERE s.agent_id = %s AND i.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(i.created_at) ORDER BY 1;
+        """, (agent_id,))
+        incident_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT DATE(ad.created_at), COUNT(*) FROM adhoc_tasks ad
+            JOIN shifts s ON s.id = ad.shift_id
+            WHERE s.agent_id = %s AND ad.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(ad.created_at) ORDER BY 1;
+        """, (agent_id,))
+        adhoc_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT s.id, DATE(s.login_time),
+                   EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600,
+                   s.triaged_count,
+                   COUNT(DISTINCT t.id), COUNT(DISTINCT a.id),
+                   COUNT(DISTINCT i.id), COUNT(DISTINCT ad.id)
+            FROM shifts s
+            LEFT JOIN tickets t ON t.shift_id = s.id
+            LEFT JOIN alerts a ON a.shift_id = s.id
+            LEFT JOIN incident_status i ON i.shift_id = s.id
+            LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
+            WHERE s.agent_id = %s AND s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY s.id, s.login_time, s.logout_time, s.triaged_count
+            ORDER BY s.login_time DESC LIMIT 10;
+        """, (agent_id,))
+        recent_shifts = [
+            {"id": str(r[0]), "date": str(r[1]),
+             "duration_hours": round(float(r[2] or 0), 2),
+             "triaged_count": r[3] or 0,
+             "ticket_count": int(r[4] or 0), "alert_count": int(r[5] or 0),
+             "incident_count": int(r[6] or 0), "adhoc_count": int(r[7] or 0)}
+            for r in cur.fetchall()
+        ]
+
+        cur.close()
+        return jsonify({
+            "agent_id": agent_id,
+            "alert_breakdown": alert_breakdown,
+            "monitor_breakdown": monitor_breakdown,
+            "ticket_trend": ticket_trend,
+            "alert_trend": alert_trend,
+            "incident_trend": incident_trend,
+            "adhoc_trend": adhoc_trend,
+            "recent_shifts": recent_shifts,
+        })
+    except Exception as e:
+        print(f"❌ Error in get_agent_detail: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         if conn:

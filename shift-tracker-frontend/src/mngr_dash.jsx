@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { managerStyles as styles } from "./mngr_styles";
 import AdvancedAnalytics from "./Advancedanalyticis";
-import UserManagement from "./UserManagement";   // ← new import
+import UserManagement from "./Usermanagement";   // ← new import
 
 function ManagerDashboard() {
   const API = "http://192.168.74.152:5000";
@@ -388,6 +388,7 @@ function ManagerDashboard() {
             loading={loading.advancedAnalytics}
             error={errors.advancedAnalytics}
             onRefresh={fetchAdvancedAnalytics}
+            api={API}
           />
         )}
 

@@ -369,7 +369,7 @@ function StatRow({ label, value, color = C.ink }) {
 }
 
 /* ══════════════════ AGENT DETAIL SLIDE-IN PANEL ══ */
-function AgentDetailPanel({ agent, onClose }) {
+function AgentDetailPanel({ agent, onClose, detailLoading = false }) {
   if (!agent) return null;
   const name  = agent.agent_name || (agent.agent_id?.slice(0,10)+"…");
   const color = PALETTE[Math.abs((name.charCodeAt(0)||65)-65) % PALETTE.length];
@@ -395,8 +395,8 @@ function AgentDetailPanel({ agent, onClose }) {
     { label:"Alerts",        value:agent.total_alerts     || 0, color:C.redText     },
     { label:"Incidents",     value:agent.total_incidents  || 0, color:"#a78bfa"     },
     { label:"Ad-hoc",        value:agent.total_adhoc      || 0, color:C.inkMid      },
-    { label:"Avg Triaged/Shift", value:agent.avg_triaged_per_shift || "—", color:C.ink },
-    { label:"Avg Shift hrs",     value:agent.avg_shift_hours       || "—", color:C.ink },
+    { label:"Avg Triaged/Shift", value:agent.avg_triaged_per_shift != null ? agent.avg_triaged_per_shift : "—", color:C.ink },
+    { label:"Avg Shift hrs",     value:agent.avg_shift_hours       != null ? agent.avg_shift_hours       : "—", color:C.ink },
   ];
 
   return (
@@ -460,15 +460,19 @@ function AgentDetailPanel({ agent, onClose }) {
         <Grid cols={2} gap={14}>
           <div>
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Alert Types Handled</div>
-            {topAlerts.length>0
-              ? topAlerts.map((a,i)=><RefinedBar key={i} label={a.alert_type||"Unknown"} sublabel={String(a.count)} value={a.count} max={Math.max(...topAlerts.map(x=>x.count),1)} color={PALETTE[i%PALETTE.length]} height={5} />)
-              : <EmptyViz height={80} />}
+            {detailLoading
+              ? <div style={{ height:80,display:"flex",alignItems:"center",justifyContent:"center" }}><div style={{ width:18,height:18,border:`1.5px solid ${C.borderLight}`,borderTop:`1.5px solid ${C.amberText}`,borderRadius:"50%",animation:"aa-spin .8s linear infinite" }} /></div>
+              : topAlerts.length>0
+                ? topAlerts.map((a,i)=><RefinedBar key={i} label={a.alert_type||"Unknown"} sublabel={String(a.count)} value={a.count} max={Math.max(...topAlerts.map(x=>x.count),1)} color={PALETTE[i%PALETTE.length]} height={5} />)
+                : <EmptyViz height={80} />}
           </div>
           <div>
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Top Monitors</div>
-            {topMonitors.length>0
-              ? topMonitors.map((m,i)=><RefinedBar key={i} label={m.monitor||"Unknown"} sublabel={String(m.count)} value={m.count} max={Math.max(...topMonitors.map(x=>x.count),1)} color={PALETTE[(i+3)%PALETTE.length]} height={5} />)
-              : <EmptyViz height={80} />}
+            {detailLoading
+              ? <div style={{ height:80,display:"flex",alignItems:"center",justifyContent:"center" }}><div style={{ width:18,height:18,border:`1.5px solid ${C.borderLight}`,borderTop:`1.5px solid ${C.greenText}`,borderRadius:"50%",animation:"aa-spin .8s linear infinite" }} /></div>
+              : topMonitors.length>0
+                ? topMonitors.map((m,i)=><RefinedBar key={i} label={m.monitor||"Unknown"} sublabel={String(m.count)} value={m.count} max={Math.max(...topMonitors.map(x=>x.count),1)} color={PALETTE[(i+3)%PALETTE.length]} height={5} />)
+                : <EmptyViz height={80} />}
           </div>
         </Grid>
 
@@ -502,8 +506,24 @@ function AgentDetailPanel({ agent, onClose }) {
 }
 
 /* ═══════════════════════════════════════════════ MAIN ══ */
-export default function AdvancedAnalytics({ data, loading, error, onRefresh }) {
+export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "http://192.168.74.152:5000" }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const openAgentDetail = async (agentRow) => {
+    setSelectedAgent(agentRow);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`${api}/manager/agent-detail/${agentRow.agent_id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const detail = await res.json();
+      setSelectedAgent(prev => prev ? { ...prev, ...detail } : null);
+    } catch (e) {
+      console.error("Failed to load agent detail:", e);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   if (loading && !data) {
     return (
@@ -574,8 +594,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh }) {
   const volDonut   = [{label:"Tickets",value:totalTickets,color:C.amberText},{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText}].filter(d=>d.value>0);
 
   /* ── Agent table ── */
-  // agent_rankings now includes all counts directly from the backend.
-  // agent_consistency is merged in for the consistency_score only.
   const agentTable = agent_rankings.map(a => {
     const cons = agent_consistency.find(c => c.agent_id === a.agent_id) || {};
     return { ...a, ...cons };
@@ -584,7 +602,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh }) {
   return (
     <div style={{ background:C.bg,minHeight:"100vh",fontFamily:"'Inter',sans-serif" }}>
       <style>{GLOBAL_CSS}</style>
-      {selectedAgent && <AgentDetailPanel agent={selectedAgent} onClose={()=>setSelectedAgent(null)} />}
+      {selectedAgent && <AgentDetailPanel agent={selectedAgent} onClose={()=>setSelectedAgent(null)} detailLoading={detailLoading} />}
 
       {/* Topbar */}
       <div style={{ background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"0 32px",height:"52px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
@@ -796,7 +814,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh }) {
                         const score = a.consistency_score||0;
                         const sColor= score>80?C.greenText:score>60?C.amberText:score>0?C.redText:C.inkMid;
                         return (
-                          <tr key={a.agent_id} style={{ animation:`aa-rise .3s ${i*0.04}s both` }} onClick={()=>setSelectedAgent(a)}>
+                          <tr key={a.agent_id} style={{ animation:`aa-rise .3s ${i*0.04}s both` }} onClick={()=>openAgentDetail(a)}>
                             <td>
                               <div style={{ display:"flex",alignItems:"center",gap:9 }}>
                                 <div style={{ width:28,height:28,borderRadius:"50%",background:color+"22",border:`1.5px solid ${color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color,flexShrink:0 }}>
