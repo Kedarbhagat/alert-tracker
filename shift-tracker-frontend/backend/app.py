@@ -1073,19 +1073,21 @@ def get_advanced_analytics():
         # Peak Hour
         peak_hour = max(hourly_distribution, key=lambda x: x['total_triaged']) if hourly_distribution else None
         
-        # Coverage Analysis
+        # Coverage Analysis — count distinct agents per hour-of-day slot
+        # (DISTINCT inside a window function is not supported in PostgreSQL,
+        #  so we aggregate in a subquery first then average across days)
         cur.execute("""
-            SELECT EXTRACT(HOUR FROM login_time) as hour,
-                   AVG(agent_count) as avg_agents
+            SELECT hour, AVG(agents_in_slot) as avg_agents
             FROM (
-                SELECT login_time,
-                       COUNT(DISTINCT agent_id) OVER (
-                           PARTITION BY DATE_TRUNC('hour', login_time)
-                       ) as agent_count
+                SELECT DATE_TRUNC('hour', login_time)          AS hour_slot,
+                       EXTRACT(HOUR FROM login_time)::int       AS hour,
+                       COUNT(DISTINCT agent_id)                 AS agents_in_slot
                 FROM shifts
                 WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
-            ) subq
-            GROUP BY EXTRACT(HOUR FROM login_time)
+                GROUP BY DATE_TRUNC('hour', login_time),
+                         EXTRACT(HOUR FROM login_time)
+            ) hourly
+            GROUP BY hour
             ORDER BY hour;
         """)
         coverage_analysis = [
