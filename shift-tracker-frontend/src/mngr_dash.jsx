@@ -467,11 +467,44 @@ function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate
                 </div>
               )}
 
+              {/* Maintenance Logs */}
+              {shiftDetails.maintenance?.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <SubLabel>Maintenance Logs ({shiftDetails.maintenance.length})</SubLabel>
+                  {shiftDetails.maintenance.map((log, i) => (
+                    <ModalItem key={i} accentColor={C.inkMid}>
+                      <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.ink }}>
+                        {log.description}
+                      </span>
+                    </ModalItem>
+                  ))}
+                </div>
+              )}
+
+              {/* Shift Handovers */}
+              {shiftDetails.handovers?.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <SubLabel>Shift Handovers ({shiftDetails.handovers.length})</SubLabel>
+                  {shiftDetails.handovers.map((handover, i) => (
+                    <ModalItem key={i} accentColor="#6366f1">
+                      <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.ink }}>
+                        <div style={{ marginBottom: 4 }}>
+                          <strong style={{ color: C.accentLight }}>To:</strong> {handover.handover_to}
+                        </div>
+                        <div>{handover.description}</div>
+                      </div>
+                    </ModalItem>
+                  ))}
+                </div>
+              )}
+
               {/* Nothing logged */}
               {!shiftDetails.tickets?.length &&
                !shiftDetails.alerts?.length &&
                !shiftDetails.incidents?.length &&
-               !shiftDetails.adhoc_tasks?.length && (
+               !shiftDetails.adhoc_tasks?.length &&
+               !shiftDetails.handovers?.length &&
+               !shiftDetails.maintenance?.length && (
                 <EmptyState message="No activity recorded for this shift" />
               )}
             </>

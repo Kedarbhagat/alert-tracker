@@ -219,10 +219,47 @@ export const styles = {
   loginWrapper: {
     minHeight: "100vh",
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     padding: "24px",
     background: C.bg,
+    position: "relative",
+  },
+
+  brandHeader: {
+    position: "absolute",
+    top: "32px",
+    left: "32px",
+    zIndex: 10,
+  },
+
+  brandContent: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  brandIconSmall: {
+    width: "48px",
+    height: "48px",
+    background: "rgba(37,99,235,0.12)",
+    border: `1px solid ${C.accentBorder}`,
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: C.accentLight,
+  },
+
+  brandNameSmall: {
+    fontSize: "18px",
+    fontWeight: "700",
+    background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    backgroundClip: "text",
+    letterSpacing: "-0.02em",
   },
 
   loginCard: {
@@ -241,6 +278,19 @@ export const styles = {
     marginBottom: "40px",
   },
 
+  loginLogoSection: {
+    marginBottom: "32px",
+    textAlign: "center",
+  },
+
+  loginCardTitle: {
+    fontSize: "22px",
+    fontWeight: "700",
+    color: C.ink,
+    margin: "0 0 8px 0",
+    letterSpacing: "-0.02em",
+  },
+
   logoIcon: {
     width: "64px",
     height: "64px",
@@ -250,8 +300,8 @@ export const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    margin: "0 auto 24px",
     color: C.accentLight,
+    flexShrink: 0,
   },
 
   loginTitle: {
@@ -266,6 +316,7 @@ export const styles = {
     fontSize: "14px",
     color: C.inkMid,
     fontWeight: "400",
+    marginBottom: "28px",
   },
 
   agentGrid: {

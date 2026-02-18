@@ -358,6 +358,81 @@ def add_adhoc():
         if conn:
             return_connection(conn)
 
+@app.route("/add-handover", methods=["POST", "OPTIONS"])
+def add_handover():
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        shift_id = data.get("shift_id")
+        description = data.get("description")
+        handover_to = data.get("handover_to")
+        
+        if not all([shift_id, description, handover_to]):
+            return jsonify({"error": "shift_id, description, and handover_to are required"}), 400
+            
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO handovers (shift_id, description, handover_to)
+            VALUES (%s, %s, %s);
+        """, (shift_id, description, handover_to))
+        conn.commit()
+        cur.close()
+        return jsonify({"message": "Shift handover added successfully"})
+    except Exception as e:
+        print(f"❌ Error in add_handover: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
+@app.route("/add-maintenance", methods=["POST", "OPTIONS"])
+def add_maintenance():
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        shift_id = data.get("shift_id")
+        description = data.get("description")
+        
+        if not all([shift_id, description]):
+            return jsonify({"error": "shift_id and description are required"}), 400
+            
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO maintenance_logs (shift_id, description)
+            VALUES (%s, %s);
+        """, (shift_id, description))
+        conn.commit()
+        cur.close()
+        return jsonify({"message": "Maintenance log added successfully"})
+    except Exception as e:
+        print(f"❌ Error in add_maintenance: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
 @app.route("/end-shift", methods=["POST", "OPTIONS"])
 def end_shift():
     if request.method == "OPTIONS":
@@ -477,6 +552,33 @@ def get_shift_summary(shift_id):
             for a in cur.fetchall()
         ]
         
+        # Get handovers
+        cur.execute("""
+            SELECT description, handover_to, created_at
+            FROM handovers WHERE shift_id = %s ORDER BY created_at;
+        """, (shift_id,))
+        handovers = [
+            {
+                "description": h[0],
+                "handover_to": h[1],
+                "created_at": format_ist_datetime(h[2])
+            }
+            for h in cur.fetchall()
+        ]
+        
+        # Get maintenance logs
+        cur.execute("""
+            SELECT description, created_at
+            FROM maintenance_logs WHERE shift_id = %s ORDER BY created_at;
+        """, (shift_id,))
+        maintenance = [
+            {
+                "description": m[0],
+                "created_at": format_ist_datetime(m[1])
+            }
+            for m in cur.fetchall()
+        ]
+        
         cur.close()
         
         return jsonify({
@@ -488,10 +590,14 @@ def get_shift_summary(shift_id):
             "alert_count": len(alerts),
             "incident_count": len(incidents),
             "adhoc_count": len(adhoc_tasks),
+            "handover_count": len(handovers),
+            "maintenance_count": len(maintenance),
             "tickets": tickets,
             "alerts": alerts,
             "incidents": incidents,
-            "adhoc_tasks": adhoc_tasks
+            "adhoc_tasks": adhoc_tasks,
+            "handovers": handovers,
+            "maintenance": maintenance
         })
     except Exception as e:
         print(f"❌ Error in get_shift_summary: {e}")
@@ -839,6 +945,33 @@ def get_shift_details(shift_id):
             for t in cur.fetchall()
         ]
         
+        # Handovers
+        cur.execute("""
+            SELECT description, handover_to, created_at
+            FROM handovers WHERE shift_id = %s ORDER BY created_at;
+        """, (shift_id,))
+        handovers = [
+            {
+                "description": h[0],
+                "handover_to": h[1],
+                "created_at": format_ist_datetime(h[2])
+            }
+            for h in cur.fetchall()
+        ]
+        
+        # Maintenance logs
+        cur.execute("""
+            SELECT description, created_at
+            FROM maintenance_logs WHERE shift_id = %s ORDER BY created_at;
+        """, (shift_id,))
+        maintenance = [
+            {
+                "description": m[0],
+                "created_at": format_ist_datetime(m[1])
+            }
+            for m in cur.fetchall()
+        ]
+        
         cur.close()
         return jsonify({
             "agent_id": str(shift[0]),
@@ -849,7 +982,9 @@ def get_shift_details(shift_id):
             "tickets": tickets,
             "alerts": alerts,
             "incidents": incidents,
-            "adhoc_tasks": adhoc_tasks
+            "adhoc_tasks": adhoc_tasks,
+            "handovers": handovers,
+            "maintenance": maintenance
         })
     except Exception as e:
         print(f"❌ Error in get_shift_details: {e}")

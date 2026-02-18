@@ -450,7 +450,7 @@ function UserManagement({ api }) {
           <input
             style={s.input}
             type="text"
-            placeholder="Agent name (e.g. Priya)"
+            placeholder="Name"
             value={newName}
             onChange={e => setNewName(e.target.value)}
             maxLength={80}

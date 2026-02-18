@@ -72,6 +72,11 @@ function App() {
   const [showSummary, setShowSummary]       = useState(false);
   const [summaryData, setSummaryData]       = useState(null);
 
+  // New fields: Shift Handover & Maintenance
+  const [handoverDescription, setHandoverDescription] = useState("");
+  const [handoverTo, setHandoverTo]                   = useState("");
+  const [maintenanceLog, setMaintenanceLog]           = useState("");
+
   // ── Restore session from localStorage ──────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem("activeShift");
@@ -211,6 +216,39 @@ function App() {
     setAdhocTask("");
   };
 
+  const handleSaveHandover = async () => {
+    if (!handoverDescription.trim() || !handoverTo.trim()) {
+      alert("Please enter both handover description and recipient");
+      return;
+    }
+    await fetch(`${API}/add-handover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shift_id: shiftId,
+        description: handoverDescription,
+        handover_to: handoverTo,
+      }),
+    });
+    alert("Shift handover saved successfully");
+    setHandoverDescription("");
+    setHandoverTo("");
+  };
+
+  const handleSaveMaintenance = async () => {
+    if (!maintenanceLog.trim()) {
+      alert("Please enter maintenance information");
+      return;
+    }
+    await fetch(`${API}/add-maintenance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shift_id: shiftId, description: maintenanceLog }),
+    });
+    alert("Maintenance log saved successfully");
+    setMaintenanceLog("");
+  };
+
   const handleEndShift = async () => {
     await fetch(`${API}/end-shift`, {
       method: "POST",
@@ -234,6 +272,9 @@ function App() {
     setTickets([]);
     setIncidentStatus("");
     setAdhocTask("");
+    setHandoverDescription("");
+    setHandoverTo("");
+    setMaintenanceLog("");
   };
 
   // ── Shared icon colours ─────────────────────────────────────────────────────
@@ -265,19 +306,28 @@ function App() {
       ════════════════════════════════════════════════════════════════════ */
       ) : !selectedAgent ? (
         <div style={styles.loginWrapper}>
-          <div style={styles.loginCard}>
-
-            {/* Logo + title */}
-            <div style={styles.logoSection}>
-              <div style={styles.logoIcon}>
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {/* Company Branding Header */}
+          <div style={styles.brandHeader}>
+            <div style={styles.brandContent}>
+              <div style={styles.brandIconSmall}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                   <path d="M2 17l10 5 10-5"/>
                   <path d="M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              {/* <h1 style={styles.loginTitle}>Shift Management</h1> */}
-              <p style={styles.loginSubtitle}>Select your profile to begin your shift</p>
+              <div>
+                <div style={styles.brandNameSmall}>Project44</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.loginCard}>
+
+            {/* Profile Selection Subtitle */}
+            <div style={styles.loginLogoSection}>
+              <h1 style={styles.loginCardTitle}>Select Your Profile</h1>
+              <p style={styles.loginSubtitle}>Choose your account to begin your shift</p>
             </div>
 
             {/* Loading / error states */}
@@ -410,11 +460,13 @@ function App() {
 
               <div style={styles.summaryStats}>
                 {[
-                  { label: "Triaged",    value: summaryData.triaged_count  },
-                  { label: "Tickets",    value: summaryData.ticket_count   },
-                  { label: "Alerts",     value: summaryData.alert_count    },
-                  { label: "Incidents",  value: summaryData.incident_count },
-                  { label: "Ad-hoc",     value: summaryData.adhoc_count    },
+                  { label: "Triaged",    value: summaryData.triaged_count    },
+                  { label: "Tickets",    value: summaryData.ticket_count     },
+                  { label: "Alerts",     value: summaryData.alert_count      },
+                  { label: "Incidents",  value: summaryData.incident_count   },
+                  { label: "Ad-hoc",     value: summaryData.adhoc_count      },
+                  { label: "Handovers",  value: summaryData.handover_count   },
+                  { label: "Maintenance",value: summaryData.maintenance_count},
                 ].map(({ label, value }) => (
                   <div key={label} style={styles.statCard}>
                     <div style={styles.statValue}>{value}</div>
@@ -523,11 +575,64 @@ function App() {
               </div>
             )}
 
+            {/* Shift Handovers */}
+            {summaryData.handovers?.length > 0 && (
+              <div style={styles.summarySection}>
+                <h2 style={styles.sectionTitle}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.indigo} strokeWidth="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="8.5" cy="7" r="4"/>
+                    <polyline points="17 11 19 13 23 9"/>
+                  </svg>
+                  Shift Handovers ({summaryData.handovers.length})
+                </h2>
+                <div style={styles.itemList}>
+                  {summaryData.handovers.map((handover, i) => (
+                    <div key={i} className="ag-summary-item" style={{ borderLeftColor: C.indigo }}>
+                      <div style={styles.itemHeader}>
+                        <span style={styles.itemTitle}>Handover #{i + 1}</span>
+                        <span style={styles.itemTime}>{new Date(handover.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      <div style={styles.itemDescription}>
+                        <div style={{ marginBottom: 6 }}><strong>To:</strong> {handover.handover_to}</div>
+                        <div>{handover.description}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Maintenance Logs */}
+            {summaryData.maintenance?.length > 0 && (
+              <div style={styles.summarySection}>
+                <h2 style={styles.sectionTitle}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.inkMid} strokeWidth="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                  </svg>
+                  Maintenance Logs ({summaryData.maintenance.length})
+                </h2>
+                <div style={styles.itemList}>
+                  {summaryData.maintenance.map((log, i) => (
+                    <div key={i} className="ag-summary-item" style={{ borderLeftColor: C.inkMid }}>
+                      <div style={styles.itemHeader}>
+                        <span style={styles.itemTitle}>Log #{i + 1}</span>
+                        <span style={styles.itemTime}>{new Date(log.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      <div style={styles.itemDescription}>{log.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Empty state */}
             {!summaryData.tickets?.length &&
              !summaryData.alerts?.length &&
              !summaryData.incidents?.length &&
              !summaryData.adhoc_tasks?.length &&
+             !summaryData.handovers?.length &&
+             !summaryData.maintenance?.length &&
              summaryData.triaged_count === 0 && (
               <div style={styles.summarySection}>
                 <div style={styles.emptyState}>No activities recorded during this shift.</div>
@@ -748,8 +853,65 @@ function App() {
                     onChange={(e) => setAdhocTask(e.target.value)}
                     className="ag-input"
                   />
-                  <button className="ag-btn-save" onClick={handleSaveAdhocTask}>
+                  <button className="ag-btn-primary" onClick={handleSaveAdhocTask}>
                     Save Ad-hoc Task
+                  </button>
+                </div>
+              </div>
+
+              {/* Shift Handover */}
+              <div className="ag-card">
+                <div className="ag-card-header">
+                  <h3 style={styles.cardTitle}>Shift Handover</h3>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.indigo} strokeWidth="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="8.5" cy="7" r="4"/>
+                    <polyline points="17 11 19 13 23 9"/>
+                  </svg>
+                </div>
+                <div style={styles.cardBody}>
+                  <label style={styles.label}>Shift Summary</label>
+                  <textarea
+                    rows="4"
+                    placeholder="Describe your shift activities and key points to handover…"
+                    value={handoverDescription}
+                    onChange={(e) => setHandoverDescription(e.target.value)}
+                    className="ag-input"
+                  />
+                  <label style={styles.label}>Handing Over To</label>
+                  <input
+                    type="text"
+                    placeholder="Next agent's name or ID…"
+                    value={handoverTo}
+                    onChange={(e) => setHandoverTo(e.target.value)}
+                    className="ag-input"
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: `1px solid ${C.border}`, fontSize: "13px", fontFamily: "'Inter',sans-serif", backgroundColor: C.canvas, color: C.ink, outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
+                  />
+                  <button className="ag-btn-primary" onClick={handleSaveHandover}>
+                    Save Handover
+                  </button>
+                </div>
+              </div>
+
+              {/* Maintenance Log */}
+              <div className="ag-card">
+                <div className="ag-card-header">
+                  <h3 style={styles.cardTitle}>Maintenance Log</h3>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.inkMid} strokeWidth="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                  </svg>
+                </div>
+                <div style={styles.cardBody}>
+                  <label style={styles.label}>Maintenance Description</label>
+                  <textarea
+                    rows="6"
+                    placeholder="Document maintenance activities, system updates, or infrastructure changes…"
+                    value={maintenanceLog}
+                    onChange={(e) => setMaintenanceLog(e.target.value)}
+                    className="ag-input"
+                  />
+                  <button className="ag-btn-primary" onClick={handleSaveMaintenance}>
+                    Save Maintenance Log
                   </button>
                 </div>
               </div>
