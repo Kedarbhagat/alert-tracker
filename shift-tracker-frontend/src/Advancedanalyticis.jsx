@@ -619,15 +619,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
 
       <div style={{ padding:"28px 32px",display:"flex",flexDirection:"column",gap:40,maxWidth:1560,margin:"0 auto" }}>
 
-        {/* 1 · INSIGHTS */}
-        {insights.length>0 && (
-          <Section title="Operational Insights" sub="Pattern recognition from the last 30 days" accentColor={C.indigo} delay={0}>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:12 }}>
-              {insights.map((ins,i)=><InsightCard key={i} insight={ins} delay={i*0.04} />)}
-            </div>
-          </Section>
-        )}
-
         {/* 2 · KPIs */}
         <Section title="Key Metrics" sub="30-day cumulative totals" accentColor={C.accentLight} delay={0.05}>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(155px,1fr))",gap:14 }}>
@@ -697,33 +688,15 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
         </Section>
 
         {/* 5 · ACTIVITY DISTRIBUTION */}
-        <Section title="Activity Distribution" sub="When shifts happen and triage volume by hour and day" accentColor={C.indigo} delay={0.2}>
-          <Grid cols={2} gap={16}>
-            <Panel>
-              <PanelTitle>Hourly Distribution — Shifts & Cases</PanelTitle>
-              {hourly_distribution.length>0
-                ? <>
-                    <BarChart data={hourly_distribution} xKey="hour" yKey="total_triaged" yKey2="shift_count" color={C.accentLight} color2={C.indigo} height={160} />
-                    <div style={{ display:"flex",gap:16,marginTop:10 }}>
-                      {[{label:"Cases Triaged",color:C.accentLight},{label:"Shifts",color:C.indigo}].map(l=>(
-                        <div key={l.label} style={{ display:"flex",alignItems:"center",gap:5 }}>
-                          <div style={{ width:7,height:7,borderRadius:1,background:l.color }} />
-                          <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                : <EmptyViz height={160} />}
-            </Panel>
-            <Panel>
-              <PanelTitle>Day-of-Week Breakdown</PanelTitle>
-              {daily_distribution.length>0
-                ? daily_distribution.map((d,i)=>(
-                    <RefinedBar key={i} label={d.day_name} sublabel={`${d.total_triaged} cases · ${d.unique_agents||0} agents`} value={d.total_triaged} max={Math.max(...daily_distribution.map(x=>x.total_triaged),1)} color={PALETTE[i%PALETTE.length]} height={5} />
-                  ))
-                : <EmptyViz height={160} />}
-            </Panel>
-          </Grid>
+        <Section title="Activity Distribution" sub="Triage volume by day of week" accentColor={C.indigo} delay={0.2}>
+          <Panel>
+            <PanelTitle>Day-of-Week Breakdown</PanelTitle>
+            {daily_distribution.length>0
+              ? daily_distribution.map((d,i)=>(
+                  <RefinedBar key={i} label={d.day_name} sublabel={`${d.total_triaged} cases · ${d.unique_agents||0} agents`} value={d.total_triaged} max={Math.max(...daily_distribution.map(x=>x.total_triaged),1)} color={PALETTE[i%PALETTE.length]} height={5} />
+                ))
+              : <EmptyViz height={160} />}
+          </Panel>
         </Section>
 
         {/* 6 · ALERT INTELLIGENCE */}
@@ -745,51 +718,22 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                 : <EmptyViz height={160} />}
             </Panel>
           </Grid>
-          {alert_analysis.length>0 && (
-            <Panel style={{ marginTop:16 }}>
-              <PanelTitle>Alert Type vs Shifts Affected</PanelTitle>
-              <BarChart data={alert_analysis} xKey="alert_type" yKey="count" yKey2="shifts_affected" color={C.redText} color2={C.amberText} height={160} />
-              <div style={{ display:"flex",gap:20,marginTop:10 }}>
-                {[{label:"Alert Count",color:C.redText},{label:"Shifts Affected",color:C.amberText}].map(l=>(
-                  <div key={l.label} style={{ display:"flex",alignItems:"center",gap:6 }}>
-                    <div style={{ width:7,height:7,borderRadius:1,background:l.color }} />
-                    <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          )}
         </Section>
 
         {/* 7 · SHIFT STATS */}
-        <Section title="Shift Statistics" sub="Duration distribution and peak activity" accentColor={C.accentLight} delay={0.3}>
-          <Grid cols={2} gap={16}>
-            <Panel>
-              <PanelTitle>Shift Duration</PanelTitle>
-              {Object.keys(shift_duration_stats).length>0
-                ? <>
-                    <StatRow label="Average"  value={`${shift_duration_stats.avg??   "—"}h`} color={C.accentLight} />
-                    <StatRow label="Median"   value={`${shift_duration_stats.median??"—"}h`} color={C.indigo} />
-                    <StatRow label="Minimum"  value={`${shift_duration_stats.min??   "—"}h`} color={C.greenText} />
-                    <StatRow label="Maximum"  value={`${shift_duration_stats.max??   "—"}h`} color={C.redText} />
-                    <StatRow label="Std Dev"  value={`±${shift_duration_stats.std_dev??"—"}h`} color={C.inkMid} />
-                  </>
-                : <EmptyViz height={140} />}
-            </Panel>
-            <Panel style={{ display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",textAlign:"center",background:C.accentFaint,border:`1px solid ${C.accentBorder}` }}>
-              {peak_hour
-                ? <>
-                    <div style={{ fontSize:10,color:C.accentLight,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:14 }}>Peak Activity Hour</div>
-                    <div style={{ fontFamily:"'Inter',sans-serif",fontSize:64,fontWeight:700,color:C.ink,lineHeight:1,letterSpacing:"-0.04em" }}>
-                      {peak_hour.hour}<span style={{ fontSize:26,color:C.inkMid,fontWeight:400 }}>:00</span>
-                    </div>
-                    <div style={{ width:32,height:1,background:C.accentLight,margin:"14px auto",opacity:0.4 }} />
-                    <div style={{ fontSize:12,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{peak_hour.total_triaged} cases triaged</div>
-                    <div style={{ fontSize:11,color:C.inkLight,marginTop:4,fontFamily:"'Inter',sans-serif" }}>{peak_hour.shift_count} shifts in this window</div>
-                  </>
-                : <EmptyViz height={150} />}
-            </Panel>
-          </Grid>
+        <Section title="Shift Statistics" sub="Duration distribution" accentColor={C.accentLight} delay={0.3}>
+          <Panel>
+            <PanelTitle>Shift Duration</PanelTitle>
+            {Object.keys(shift_duration_stats).length>0
+              ? <>
+                  <StatRow label="Average"  value={`${shift_duration_stats.avg??   "—"}h`} color={C.accentLight} />
+                  <StatRow label="Median"   value={`${shift_duration_stats.median??"—"}h`} color={C.indigo} />
+                  <StatRow label="Minimum"  value={`${shift_duration_stats.min??   "—"}h`} color={C.greenText} />
+                  <StatRow label="Maximum"  value={`${shift_duration_stats.max??   "—"}h`} color={C.redText} />
+                  <StatRow label="Std Dev"  value={`±${shift_duration_stats.std_dev??"—"}h`} color={C.inkMid} />
+                </>
+              : <EmptyViz height={140} />}
+          </Panel>
         </Section>
 
         {/* 8 · AGENT BREAKDOWN — click for detail */}
@@ -804,15 +748,13 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                     <thead className="aa-thead">
                       <tr>
                         <th>Agent</th><th>Shifts</th><th>Triaged</th><th>Tickets</th>
-                        <th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Consistency</th>
+                        <th>Alerts</th><th>Incidents</th><th>Ad-hoc</th>
                       </tr>
                     </thead>
                     <tbody className="aa-tbody">
                       {agentTable.map((a,i)=>{
                         const name  = a.agent_name||(a.agent_id?.slice(0,10)+"…");
                         const color = PALETTE[i%PALETTE.length];
-                        const score = a.consistency_score||0;
-                        const sColor= score>80?C.greenText:score>60?C.amberText:score>0?C.redText:C.inkMid;
                         return (
                           <tr key={a.agent_id} style={{ animation:`aa-rise .3s ${i*0.04}s both` }} onClick={()=>openAgentDetail(a)}>
                             <td>
@@ -829,16 +771,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                             <td style={{ color:C.redText }}>{a.total_alerts??   "—"}</td>
                             <td style={{ color:"#a78bfa" }}>{a.total_incidents??"—"}</td>
                             <td style={{ color:C.inkMid }}>{a.total_adhoc??     "—"}</td>
-                            <td>
-                              {score>0
-                                ? <div style={{ display:"flex",alignItems:"center",gap:7 }}>
-                                    <div style={{ flex:1,height:3,background:C.surfaceBorder,borderRadius:3,overflow:"hidden",minWidth:40 }}>
-                                      <div style={{ height:"100%",width:`${score}%`,background:sColor,borderRadius:3,transition:"width 1s" }} />
-                                    </div>
-                                    <span style={{ fontSize:11,fontWeight:600,color:sColor,fontFamily:"'JetBrains Mono',monospace",flexShrink:0 }}>{score}%</span>
-                                  </div>
-                                : <span style={{ color:C.inkLight,fontSize:11 }}>—</span>}
-                            </td>
                           </tr>
                         );
                       })}

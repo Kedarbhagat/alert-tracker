@@ -24,7 +24,7 @@ function App() {
     "Database Issue",
   ];
 
-  const API = "http://172.16.8.50:5000";
+  const API = "http://192.168.74.93:5000";
 
   // ── Inject global CSS once ──────────────────────────────────────────────────
   useEffect(() => {
