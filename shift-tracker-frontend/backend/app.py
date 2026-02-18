@@ -1002,10 +1002,33 @@ def get_advanced_analytics():
         conn = get_db_connection()
         if not conn:
             return jsonify({"error": "Database connection failed"}), 500
-            
+
+        # ── Date-range resolution ────────────────────────────────────────────
+        # Priority: start_date+end_date  >  days  >  default 30 days
+        start_date_str = request.args.get("start_date")   # YYYY-MM-DD
+        end_date_str   = request.args.get("end_date")     # YYYY-MM-DD
+        days_param     = request.args.get("days")
+
+        from datetime import date as _date
+        today = _date.today()
+
+        if start_date_str and end_date_str:
+            try:
+                date_from = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                date_to   = datetime.strptime(end_date_str,   "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+        else:
+            days = int(days_param) if days_param and days_param.isdigit() else 30
+            date_from = today - timedelta(days=days)
+            date_to   = today
+
+        # end of day for the to-date (inclusive)
+        date_to_inclusive = f"{date_to} 23:59:59"
+
         cur = conn.cursor()
-        
-        # Performance Trends (Last 30 days)
+
+        # Performance Trends
         cur.execute("""
             SELECT DATE(login_time) as date,
                    COUNT(DISTINCT agent_id) as agents,
@@ -1013,10 +1036,10 @@ def get_advanced_analytics():
                    COALESCE(SUM(triaged_count), 0) as total_triaged,
                    COALESCE(AVG(triaged_count), 0) as avg_triaged
             FROM shifts
-            WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE login_time >= %s AND login_time <= %s
             GROUP BY DATE(login_time)
             ORDER BY date;
-        """)
+        """, (date_from, date_to_inclusive))
         performance_trends = [
             {
                 "date": str(p[0]),
@@ -1048,11 +1071,11 @@ def get_advanced_analytics():
             LEFT JOIN incident_status i ON i.shift_id = s.id
             LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
             LEFT JOIN agents ag ON s.agent_id = ag.id
-            WHERE s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.login_time >= %s AND s.login_time <= %s
             GROUP BY s.agent_id, ag.name
             HAVING COUNT(DISTINCT s.id) >= 1
             ORDER BY productivity_rate DESC;
-        """)
+        """, (date_from, date_to_inclusive))
         agent_rankings = [
             {
                 "rank": idx + 1,
@@ -1079,10 +1102,10 @@ def get_advanced_analytics():
                    COALESCE(SUM(triaged_count), 0) as total_triaged,
                    COALESCE(AVG(triaged_count), 0) as avg_triaged
             FROM shifts
-            WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE login_time >= %s AND login_time <= %s
             GROUP BY EXTRACT(HOUR FROM login_time)
             ORDER BY hour;
-        """)
+        """, (date_from, date_to_inclusive))
         hourly_distribution = [
             {
                 "hour": int(h[0]),
@@ -1101,10 +1124,10 @@ def get_advanced_analytics():
                    COALESCE(AVG(triaged_count), 0) as avg_triaged,
                    COUNT(DISTINCT agent_id) as unique_agents
             FROM shifts
-            WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE login_time >= %s AND login_time <= %s
             GROUP BY EXTRACT(DOW FROM login_time)
             ORDER BY day_of_week;
-        """)
+        """, (date_from, date_to_inclusive))
         daily_distribution = [
             {
                 "day_of_week": int(d[0]),
@@ -1123,10 +1146,10 @@ def get_advanced_analytics():
                    COUNT(*) as count,
                    COUNT(DISTINCT shift_id) as shifts_affected
             FROM alerts
-            WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE created_at >= %s AND created_at <= %s
             GROUP BY alert_type
             ORDER BY count DESC;
-        """)
+        """, (date_from, date_to_inclusive))
         alert_analysis = [
             {
                 "alert_type": a[0],
@@ -1143,11 +1166,11 @@ def get_advanced_analytics():
                    COUNT(DISTINCT shift_id) as shifts_affected,
                    COUNT(DISTINCT alert_type) as unique_alert_types
             FROM alerts
-            WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE created_at >= %s AND created_at <= %s
             GROUP BY monitor
             ORDER BY alert_count DESC
             LIMIT 10;
-        """)
+        """, (date_from, date_to_inclusive))
         monitor_analysis = [
             {
                 "monitor": m[0],
@@ -1163,9 +1186,9 @@ def get_advanced_analytics():
             SELECT EXTRACT(EPOCH FROM (logout_time - login_time))/3600 as duration_hours
             FROM shifts
             WHERE logout_time IS NOT NULL
-            AND login_time >= CURRENT_DATE - INTERVAL '30 days'
+            AND login_time >= %s AND login_time <= %s
             AND EXTRACT(EPOCH FROM (logout_time - login_time))/3600 > 0;
-        """)
+        """, (date_from, date_to_inclusive))
         durations = [float(d[0]) for d in cur.fetchall() if d[0] and d[0] > 0]
         shift_duration_stats = {}
         if durations:
@@ -1182,9 +1205,9 @@ def get_advanced_analytics():
             SELECT triaged_count,
                    EXTRACT(EPOCH FROM (COALESCE(logout_time, NOW()) - login_time))/3600 as hours
             FROM shifts
-            WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE login_time >= %s AND login_time <= %s
             AND EXTRACT(EPOCH FROM (COALESCE(logout_time, NOW()) - login_time))/3600 > 0.5;
-        """)
+        """, (date_from, date_to_inclusive))
         productivity_rates = [
             round(p[0] / p[1], 2) if p[1] > 0 else 0
             for p in cur.fetchall()
@@ -1205,10 +1228,10 @@ def get_advanced_analytics():
             SELECT DATE(created_at) as date,
                    COUNT(*) as incident_count
             FROM incident_status
-            WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE created_at >= %s AND created_at <= %s
             GROUP BY DATE(created_at)
             ORDER BY date;
-        """)
+        """, (date_from, date_to_inclusive))
         incident_pattern = [
             {
                 "date": str(i[0]),
@@ -1222,10 +1245,10 @@ def get_advanced_analytics():
             SELECT DATE(created_at) as date,
                    COUNT(*) as ticket_count
             FROM tickets
-            WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE created_at >= %s AND created_at <= %s
             GROUP BY DATE(created_at)
             ORDER BY date;
-        """)
+        """, (date_from, date_to_inclusive))
         ticket_volume = [
             {
                 "date": str(t[0]),
@@ -1240,12 +1263,12 @@ def get_advanced_analytics():
                    STDDEV(triaged_count) as triaged_variance,
                    AVG(triaged_count) as avg_triaged
             FROM shifts
-            WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE login_time >= %s AND login_time <= %s
             AND logout_time IS NOT NULL
             GROUP BY agent_id
             HAVING COUNT(*) >= 1
             ORDER BY triaged_variance;
-        """)
+        """, (date_from, date_to_inclusive))
         agent_consistency = [
             {
                 "agent_id": str(c[0]),
@@ -1269,13 +1292,13 @@ def get_advanced_analytics():
                        EXTRACT(HOUR FROM login_time)::int       AS hour,
                        COUNT(DISTINCT agent_id)                 AS agents_in_slot
                 FROM shifts
-                WHERE login_time >= CURRENT_DATE - INTERVAL '30 days'
+                WHERE login_time >= %s AND login_time <= %s
                 GROUP BY DATE_TRUNC('hour', login_time),
                          EXTRACT(HOUR FROM login_time)
             ) hourly
             GROUP BY hour
             ORDER BY hour;
-        """)
+        """, (date_from, date_to_inclusive))
         coverage_analysis = [
             {
                 "hour": int(c[0]),
@@ -1374,54 +1397,76 @@ def get_agent_detail(agent_id):
         conn = get_db_connection()
         if not conn:
             return jsonify({"error": "Database connection failed"}), 500
+
+        # ── Date-range resolution (same logic as advanced-analytics) ────────
+        start_date_str = request.args.get("start_date")
+        end_date_str   = request.args.get("end_date")
+        days_param     = request.args.get("days")
+
+        from datetime import date as _date
+        today = _date.today()
+
+        if start_date_str and end_date_str:
+            try:
+                date_from = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                date_to   = datetime.strptime(end_date_str,   "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+        else:
+            days = int(days_param) if days_param and days_param.isdigit() else 30
+            date_from = today - timedelta(days=days)
+            date_to   = today
+
+        date_to_inclusive = f"{date_to} 23:59:59"
+
         cur = conn.cursor()
 
         cur.execute("""
             SELECT a.alert_type, COUNT(*) as count
             FROM alerts a JOIN shifts s ON s.id = a.shift_id
-            WHERE s.agent_id = %s AND s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND s.login_time >= %s AND s.login_time <= %s
             GROUP BY a.alert_type ORDER BY count DESC LIMIT 10;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         alert_breakdown = [{"alert_type": r[0], "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
             SELECT a.monitor, COUNT(*) as count
             FROM alerts a JOIN shifts s ON s.id = a.shift_id
-            WHERE s.agent_id = %s AND s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND s.login_time >= %s AND s.login_time <= %s
             GROUP BY a.monitor ORDER BY count DESC LIMIT 10;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         monitor_breakdown = [{"monitor": r[0], "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
             SELECT DATE(t.created_at), COUNT(*) FROM tickets t
             JOIN shifts s ON s.id = t.shift_id
-            WHERE s.agent_id = %s AND t.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND t.created_at >= %s AND t.created_at <= %s
             GROUP BY DATE(t.created_at) ORDER BY 1;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         ticket_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
             SELECT DATE(a.created_at), COUNT(*) FROM alerts a
             JOIN shifts s ON s.id = a.shift_id
-            WHERE s.agent_id = %s AND a.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND a.created_at >= %s AND a.created_at <= %s
             GROUP BY DATE(a.created_at) ORDER BY 1;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         alert_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
             SELECT DATE(i.created_at), COUNT(*) FROM incident_status i
             JOIN shifts s ON s.id = i.shift_id
-            WHERE s.agent_id = %s AND i.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND i.created_at >= %s AND i.created_at <= %s
             GROUP BY DATE(i.created_at) ORDER BY 1;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         incident_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
             SELECT DATE(ad.created_at), COUNT(*) FROM adhoc_tasks ad
             JOIN shifts s ON s.id = ad.shift_id
-            WHERE s.agent_id = %s AND ad.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND ad.created_at >= %s AND ad.created_at <= %s
             GROUP BY DATE(ad.created_at) ORDER BY 1;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         adhoc_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
@@ -1435,10 +1480,10 @@ def get_agent_detail(agent_id):
             LEFT JOIN alerts a ON a.shift_id = s.id
             LEFT JOIN incident_status i ON i.shift_id = s.id
             LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
-            WHERE s.agent_id = %s AND s.login_time >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE s.agent_id = %s AND s.login_time >= %s AND s.login_time <= %s
             GROUP BY s.id, s.login_time, s.logout_time, s.triaged_count
             ORDER BY s.login_time DESC LIMIT 10;
-        """, (agent_id,))
+        """, (agent_id, date_from, date_to_inclusive))
         recent_shifts = [
             {"id": str(r[0]), "date": str(r[1]),
              "duration_hours": round(float(r[2] or 0), 2),

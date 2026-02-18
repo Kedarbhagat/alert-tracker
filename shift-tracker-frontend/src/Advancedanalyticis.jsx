@@ -505,16 +505,78 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false }) {
   );
 }
 
+const DURATION_OPTIONS = [
+  { label: "7D",  days: 7  },
+  { label: "14D", days: 14 },
+  { label: "30D", days: 30 },
+  { label: "60D", days: 60 },
+  { label: "90D", days: 90 },
+];
+
+function toISODate(d) { return d.toISOString().slice(0, 10); }
+
 /* ═══════════════════════════════════════════════ MAIN ══ */
 export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "http://192.168.74.152:5000" }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Duration mode: preset pill (days number) or "custom"
+  const [activePreset, setActivePreset] = useState(30);
+  const [mode, setMode] = useState("preset"); // "preset" | "custom"
+
+  // Custom date range
+  const todayStr = toISODate(new Date());
+  const defaultFrom = toISODate(new Date(Date.now() - 30 * 86400000));
+  const [dateFrom, setDateFrom] = useState(defaultFrom);
+  const [dateTo,   setDateTo]   = useState(todayStr);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // What label to show in header
+  const viewLabel = mode === "custom"
+    ? `${dateFrom} → ${dateTo}`
+    : `${activePreset}-day operational view`;
+
+  // Build query params for API calls
+  const buildParams = () => mode === "custom"
+    ? `start_date=${dateFrom}&end_date=${dateTo}`
+    : `days=${activePreset}`;
+
+  const triggerRefresh = (params) => {
+    if (onRefresh) onRefresh(params);
+  };
+
+  const handlePreset = (days) => {
+    setActivePreset(days);
+    setMode("preset");
+    setShowDatePicker(false);
+    triggerRefresh(`days=${days}`);
+  };
+
+  const handleCustomApply = () => {
+    if (!dateFrom || !dateTo || dateFrom > dateTo) return;
+    setMode("custom");
+    setShowDatePicker(false);
+    triggerRefresh(`start_date=${dateFrom}&end_date=${dateTo}`);
+  };
+
+  // Close date picker on outside click
+  const datePickerRef = useRef(null);
+  useEffect(() => {
+    if (!showDatePicker) return;
+    const handler = (e) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setShowDatePicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDatePicker]);
+
   const openAgentDetail = async (agentRow) => {
     setSelectedAgent(agentRow);
     setDetailLoading(true);
     try {
-      const res = await fetch(`${api}/manager/agent-detail/${agentRow.agent_id}`);
+      const res = await fetch(`${api}/manager/agent-detail/${agentRow.agent_id}?${buildParams()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const detail = await res.json();
       setSelectedAgent(prev => prev ? { ...prev, ...detail } : null);
@@ -546,7 +608,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
           <div style={{ width:40,height:40,borderRadius:"50%",background:C.redFaint,border:`1px solid ${C.redBorder}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:18,color:C.redText }}>!</div>
           <div style={{ fontFamily:"'Inter',sans-serif",fontSize:15,fontWeight:600,color:C.ink,marginBottom:8 }}>Analytics unavailable</div>
           <div style={{ fontFamily:"'Inter',sans-serif",fontSize:12,color:C.inkMid,marginBottom:20,lineHeight:1.6 }}>{error}</div>
-          <button className="aa-btn" onClick={onRefresh}>Retry</button>
+          <button className="aa-btn" onClick={() => triggerRefresh(buildParams())}>Retry</button>
         </div>
       </div>
     );
@@ -605,22 +667,107 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
       {selectedAgent && <AgentDetailPanel agent={selectedAgent} onClose={()=>setSelectedAgent(null)} detailLoading={detailLoading} />}
 
       {/* Topbar */}
-      <div style={{ background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"0 32px",height:"52px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+      <div style={{ background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"0 32px",height:"52px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"relative",zIndex:200 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
           <div style={{ width:5,height:5,borderRadius:"50%",background:C.greenText,animation:"aa-pulse 3s ease-in-out infinite" }} />
           <span style={{ fontFamily:"'Inter',sans-serif",fontSize:13,fontWeight:600,color:C.ink,letterSpacing:"-0.01em" }}>Advanced Analytics</span>
-          <span style={{ fontSize:11,color:C.inkMid,marginLeft:2 }}>· 30-day operational view</span>
+          <span style={{ fontSize:11,color:C.inkMid,marginLeft:2 }}>· {viewLabel}</span>
         </div>
-        <div style={{ display:"flex",gap:10,alignItems:"center" }}>
+        <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+
+          {/* Preset pills + Custom pill group */}
+          <div style={{ display:"flex",gap:4,background:C.bgAlt,border:`1px solid ${C.border}`,borderRadius:8,padding:"3px 4px" }}>
+            {DURATION_OPTIONS.map(opt => (
+              <button key={opt.days} onClick={() => handlePreset(opt.days)} style={{
+                background: mode==="preset" && activePreset===opt.days ? C.accent : "transparent",
+                border:"none", color: mode==="preset" && activePreset===opt.days ? "#fff" : C.inkMid,
+                borderRadius:6, padding:"4px 11px", fontFamily:"'Inter',sans-serif",
+                fontSize:11, fontWeight:600, cursor:"pointer", transition:"all .15s", letterSpacing:".02em",
+              }}>{opt.label}</button>
+            ))}
+            {/* Custom pill */}
+            <button onClick={() => setShowDatePicker(v => !v)} style={{
+              background: mode==="custom" ? C.accent : showDatePicker ? C.accentFaint : "transparent",
+              border: showDatePicker && mode!=="custom" ? `1px solid ${C.accentBorder}` : "none",
+              color: mode==="custom" || showDatePicker ? (mode==="custom"?"#fff":C.accentLight) : C.inkMid,
+              borderRadius:6, padding:"4px 11px", fontFamily:"'Inter',sans-serif",
+              fontSize:11, fontWeight:600, cursor:"pointer", transition:"all .15s", letterSpacing:".02em",
+              display:"flex", alignItems:"center", gap:5,
+            }}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{flexShrink:0}}>
+                <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                <path d="M1 6h14" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Custom
+            </button>
+          </div>
+
+          {/* Date picker dropdown */}
+          {showDatePicker && (
+            <div ref={datePickerRef} style={{
+              position:"absolute", top:"56px", right:"120px",
+              background:C.surfaceRaised, border:`1px solid ${C.border}`,
+              borderRadius:10, padding:"18px 20px", zIndex:300,
+              boxShadow:"0 8px 32px rgba(0,0,0,0.55)", minWidth:300,
+              animation:"aa-rise .15s ease",
+            }}>
+              <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:14 }}>Custom Date Range</div>
+              <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+                <div>
+                  <div style={{ fontSize:11,color:C.inkLight,fontFamily:"'Inter',sans-serif",marginBottom:5 }}>From</div>
+                  <input type="date" value={dateFrom} max={dateTo||todayStr}
+                    onChange={e => setDateFrom(e.target.value)}
+                    style={{
+                      width:"100%", background:C.bgAlt, border:`1px solid ${C.border}`,
+                      borderRadius:6, padding:"7px 10px", color:C.ink,
+                      fontFamily:"'JetBrains Mono',monospace", fontSize:12,
+                      outline:"none", cursor:"pointer",
+                      colorScheme:"dark",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize:11,color:C.inkLight,fontFamily:"'Inter',sans-serif",marginBottom:5 }}>To</div>
+                  <input type="date" value={dateTo} min={dateFrom} max={todayStr}
+                    onChange={e => setDateTo(e.target.value)}
+                    style={{
+                      width:"100%", background:C.bgAlt, border:`1px solid ${C.border}`,
+                      borderRadius:6, padding:"7px 10px", color:C.ink,
+                      fontFamily:"'JetBrains Mono',monospace", fontSize:12,
+                      outline:"none", cursor:"pointer",
+                      colorScheme:"dark",
+                    }}
+                  />
+                </div>
+                {dateFrom && dateTo && dateFrom > dateTo && (
+                  <div style={{ fontSize:11,color:C.redText,fontFamily:"'Inter',sans-serif" }}>⚠ "From" must be before "To"</div>
+                )}
+                <div style={{ display:"flex",gap:8,marginTop:4 }}>
+                  <button onClick={handleCustomApply} disabled={!dateFrom||!dateTo||dateFrom>dateTo} style={{
+                    flex:1, background:C.accent, border:"none", color:"#fff",
+                    borderRadius:6, padding:"8px 0", fontFamily:"'Inter',sans-serif",
+                    fontSize:12, fontWeight:600, cursor:"pointer", opacity:(!dateFrom||!dateTo||dateFrom>dateTo)?0.4:1,
+                  }}>Apply</button>
+                  <button onClick={() => setShowDatePicker(false)} style={{
+                    flex:1, background:"transparent", border:`1px solid ${C.border}`, color:C.inkMid,
+                    borderRadius:6, padding:"8px 0", fontFamily:"'Inter',sans-serif",
+                    fontSize:12, fontWeight:500, cursor:"pointer",
+                  }}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {loading && <div style={{ width:14,height:14,border:`1.5px solid ${C.borderLight}`,borderTop:`1.5px solid ${C.accentLight}`,borderRadius:"50%",animation:"aa-spin .8s linear infinite" }} />}
-          <button className="aa-btn-ghost" onClick={onRefresh}>Refresh</button>
+          <button className="aa-btn-ghost" onClick={() => triggerRefresh(buildParams())}>Refresh</button>
         </div>
       </div>
 
       <div style={{ padding:"28px 32px",display:"flex",flexDirection:"column",gap:40,maxWidth:1560,margin:"0 auto" }}>
 
         {/* 2 · KPIs */}
-        <Section title="Key Metrics" sub="30-day cumulative totals" accentColor={C.accentLight} delay={0.05}>
+        <Section title="Key Metrics" sub={mode==="custom" ? `${dateFrom} to ${dateTo}` : `${activePreset}-day cumulative totals`} accentColor={C.accentLight} delay={0.05}>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(155px,1fr))",gap:14 }}>
             <KpiCard value={totalShifts}    label="Total Shifts"    color={C.accentLight} delay={0}    />
             <KpiCard value={totalTriaged}   label="Cases Triaged"   color={C.greenText}   delay={0.05} />
@@ -632,7 +779,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
         </Section>
 
         {/* 3 · PERFORMANCE TREND */}
-        <Section title="Performance Trend" sub="Daily triaged cases, shifts and active agents over 30 days" accentColor={C.accentLight} delay={0.1}>
+        <Section title="Performance Trend" sub={mode==="custom" ? `Daily triaged cases, shifts and agents · ${dateFrom} to ${dateTo}` : `Daily triaged cases, shifts and active agents over ${activePreset} days`} accentColor={C.accentLight} delay={0.1}>
           <Panel>
             <div style={{ display:"flex",gap:20,marginBottom:16,flexWrap:"wrap" }}>
               {[{label:"Cases Triaged",color:C.accentLight},{label:"Shifts",color:C.indigo},{label:"Agents",color:C.greenText}].map(l=>(

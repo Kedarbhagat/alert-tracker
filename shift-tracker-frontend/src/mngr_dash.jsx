@@ -690,11 +690,13 @@ function ManagerDashboard() {
     }
   }, [API, filters]);
 
-  const fetchAdvancedAnalytics = useCallback(async () => {
+  const fetchAdvancedAnalytics = useCallback(async (queryParams) => {
+    // Guard: if called with no arg, an event object, or anything non-string, use default
+    const qs = typeof queryParams === "string" && queryParams ? queryParams : "days=30";
     setLoading(p => ({ ...p, advancedAnalytics: true }));
     setErrors(p => ({ ...p, advancedAnalytics: null }));
     try {
-      const res = await fetch(`${API}/manager/advanced-analytics`);
+      const res = await fetch(`${API}/manager/advanced-analytics?${qs}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setAdvancedAnalytics(await res.json());
     } catch (err) {
