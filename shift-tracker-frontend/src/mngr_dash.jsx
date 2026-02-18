@@ -362,8 +362,8 @@ function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate
                 gap: 12, marginBottom: 24,
               }}>
                 <ModalDetailCard
-                  label="Agent ID"
-                  value={shiftDetails.agent_id ? `${shiftDetails.agent_id.slice(0, 14)}…` : "—"}
+                  label="Agent Name"
+                  value={shiftDetails.agent_name ?? "Unknown Agent"}
                   color={C.accentLight}
                 />
                 <ModalDetailCard
@@ -518,8 +518,8 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
                 gap: 12, marginBottom: 24,
               }}>
                 <ModalDetailCard
-                  label="Agent ID"
-                  value={agentStats.agent_id ? `${agentStats.agent_id.slice(0, 14)}…` : "—"}
+                  label="Agent Name"
+                  value={agentStats.agent_name ?? "Unknown Agent"}
                   color={C.accentLight}
                 />
                 <ModalDetailCard label="Total Shifts"  value={agentStats.total_shifts  ?? 0} color={C.accentLight} />
@@ -573,7 +573,7 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
 ══════════════════════════════════════════════════════════════════════════ */
 
 function ManagerDashboard() {
-  const API = "http://192.168.74.152:5000";
+  const API = "http://172.16.8.50:5000";
 
   /* ── State ── */
   const [activeView,        setActiveView]        = useState("overview");
@@ -751,9 +751,15 @@ function ManagerDashboard() {
   const formatDate = (value) => {
     if (!value) return "—";
     try {
-      return new Date(value).toLocaleString(undefined, {
-        month: "short", day: "numeric",
-        hour: "2-digit", minute: "2-digit",
+      const date = new Date(value);
+      return date.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
       });
     } catch {
       return "Invalid date";
@@ -911,7 +917,7 @@ function ManagerDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead className="mgr-thead">
                     <tr>
-                      {["Agent ID", "Login Time", "Hours Active", "Cases Triaged", "Actions"].map(h => (
+                      {["Agent Name", "Login Time", "Hours Active", "Cases Triaged", "Actions"].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -921,10 +927,11 @@ function ManagerDashboard() {
                       <tr key={agent.shift_id ?? agent.agent_id}>
                         <td>
                           <span style={{
-                            fontFamily: "'JetBrains Mono',monospace",
-                            fontSize: 12, color: C.accentLight,
+                            fontFamily: "'Inter',sans-serif",
+                            fontSize: 12, color: C.ink,
+                            fontWeight: 500,
                           }}>
-                            {agent.agent_id ? `${agent.agent_id.slice(0, 14)}…` : "Unknown"}
+                            {agent.agent_name ?? "Unknown Agent"}
                           </span>
                         </td>
                         <td style={{ color: C.inkMid, fontSize: 12 }}>
@@ -998,7 +1005,7 @@ function ManagerDashboard() {
               <input
                 type="text"
                 className="mgr-input"
-                placeholder="Filter by Agent ID…"
+                placeholder="Filter by Agent Name…"
                 value={filters.agentId}
                 onChange={e => setFilters(f => ({ ...f, agentId: e.target.value }))}
                 style={{ flex: 1, minWidth: 180 }}
@@ -1020,7 +1027,7 @@ function ManagerDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead className="mgr-thead">
                     <tr>
-                      {["Agent ID", "Login", "Logout", "Duration", "Triaged", "Status", "Actions"].map(h => (
+                      {["Agent Name", "Login", "Logout", "Duration", "Triaged", "Status", "Actions"].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -1030,10 +1037,11 @@ function ManagerDashboard() {
                       <tr key={shift.id}>
                         <td>
                           <span style={{
-                            fontFamily: "'JetBrains Mono',monospace",
-                            fontSize: 12, color: C.accentLight,
+                            fontFamily: "'Inter',sans-serif",
+                            fontSize: 12, color: C.ink,
+                            fontWeight: 500,
                           }}>
-                            {shift.agent_id ? `${shift.agent_id.slice(0, 14)}…` : "Unknown"}
+                            {shift.agent_name ?? "Unknown Agent"}
                           </span>
                         </td>
                         <td style={{ color: C.inkMid, fontSize: 12 }}>

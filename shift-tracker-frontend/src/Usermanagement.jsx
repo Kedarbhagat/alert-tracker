@@ -98,9 +98,36 @@ function UserManagement({ api }) {
   };
 
   /* ─── styles (self-contained, matches manager dashboard palette) ─────────── */
+  const C = {
+    bg:           "#0d1117",
+    bgAlt:        "#161b22",
+    surface:      "#161b22",
+    raised:       "#1c2230",
+    border:       "#30363d",
+    borderLight:  "#21262d",
+    ink:          "#e6edf3",
+    inkMid:       "#8b949e",
+    inkLight:     "#6e7681",
+    accent:       "#2563eb",
+    accentLight:  "#3b82f6",
+    greenText:    "#3fb950",
+    greenFaint:   "rgba(35,134,54,0.15)",
+    greenBorder:  "rgba(35,134,54,0.3)",
+    redText:      "#f85149",
+    redFaint:     "rgba(218,54,51,0.12)",
+    redBorder:    "rgba(218,54,51,0.3)",
+    indigoFaint:  "rgba(99,102,241,0.12)",
+    indigoBorder: "rgba(99,102,241,0.3)",
+  };
+
   const s = {
     root: {
-      fontFamily: "'Inter', 'Segoe UI', sans-serif",
+      fontFamily: "'Inter', sans-serif",
+      backgroundColor: C.bg,
+      minHeight: "100vh",
+      padding: "28px 32px",
+      maxWidth: 1400,
+      margin: "0 auto",
     },
     header: {
       display: "flex",
@@ -111,42 +138,45 @@ function UserManagement({ api }) {
       gap: 12,
     },
     title: {
-      fontSize: 22,
+      fontSize: 18,
       fontWeight: 700,
-      color: "#1e293b",
+      color: C.ink,
       margin: 0,
+      letterSpacing: "-0.01em",
     },
     refreshBtn: {
       display: "flex",
       alignItems: "center",
       gap: 6,
-      padding: "8px 16px",
-      background: "none",
-      border: "1.5px solid #e2e8f0",
-      borderRadius: 8,
+      padding: "7px 16px",
+      background: "transparent",
+      border: `1px solid ${C.border}`,
+      borderRadius: 6,
       cursor: "pointer",
-      color: "#475569",
-      fontSize: 13,
+      color: C.inkMid,
+      fontSize: 12,
       fontWeight: 500,
       transition: "all .15s",
     },
 
     /* add-user card */
     addCard: {
-      background: "#f8fafc",
-      border: "1.5px solid #e2e8f0",
-      borderRadius: 12,
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 10,
       padding: "20px 24px",
       marginBottom: 24,
     },
     addTitle: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: 600,
-      color: "#374151",
-      marginBottom: 12,
+      color: C.ink,
+      marginBottom: 14,
       display: "flex",
       alignItems: "center",
       gap: 8,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
     },
     addRow: {
       display: "flex",
@@ -156,126 +186,136 @@ function UserManagement({ api }) {
     input: {
       flex: 1,
       minWidth: 200,
-      padding: "10px 14px",
-      border: "1.5px solid #cbd5e1",
-      borderRadius: 8,
-      fontSize: 14,
-      color: "#1e293b",
-      background: "#fff",
+      padding: "8px 12px",
+      border: `1px solid ${C.border}`,
+      borderRadius: 6,
+      fontSize: 13,
+      color: C.ink,
+      background: C.bgAlt,
       outline: "none",
       transition: "border-color .15s",
     },
     addBtn: {
-      padding: "10px 22px",
-      background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
+      padding: "8px 16px",
+      background: C.accent,
       color: "#fff",
       border: "none",
-      borderRadius: 8,
-      fontSize: 14,
-      fontWeight: 600,
+      borderRadius: 6,
+      fontSize: 12,
+      fontWeight: 500,
       cursor: "pointer",
       whiteSpace: "nowrap",
       opacity: 1,
-      transition: "opacity .15s",
+      transition: "background .15s",
     },
     addBtnDisabled: {
-      opacity: 0.55,
+      opacity: 0.5,
       cursor: "not-allowed",
+      background: C.border,
     },
     hint: {
-      fontSize: 12,
-      color: "#94a3b8",
+      fontSize: 11,
+      color: C.inkLight,
       marginTop: 8,
+      fontStyle: "italic",
     },
 
     /* feedback banners */
     errorBanner: {
       padding: "12px 16px",
-      background: "#fee2e2",
-      color: "#dc2626",
+      background: C.redFaint,
+      color: C.redText,
       borderRadius: 8,
       fontSize: 13,
       marginBottom: 16,
       display: "flex",
       alignItems: "center",
       gap: 8,
+      border: `1px solid ${C.redBorder}`,
     },
     successBanner: {
       padding: "12px 16px",
-      background: "#dcfce7",
-      color: "#16a34a",
+      background: C.greenFaint,
+      color: C.greenText,
       borderRadius: 8,
       fontSize: 13,
       marginBottom: 16,
       display: "flex",
       alignItems: "center",
       gap: 8,
+      border: `1px solid ${C.greenBorder}`,
     },
 
     /* table */
     tableWrap: {
       overflowX: "auto",
-      borderRadius: 12,
-      border: "1.5px solid #e2e8f0",
-      background: "#fff",
+      borderRadius: 10,
+      border: `1px solid ${C.border}`,
+      background: C.surface,
     },
     table: {
       width: "100%",
       borderCollapse: "collapse",
-      fontSize: 13.5,
+      fontSize: 13,
     },
     th: {
-      padding: "12px 16px",
+      padding: "10px 16px",
       textAlign: "left",
       fontWeight: 600,
-      color: "#64748b",
-      fontSize: 12,
+      color: C.inkLight,
+      fontSize: 10,
       textTransform: "uppercase",
-      letterSpacing: "0.04em",
-      background: "#f8fafc",
-      borderBottom: "1.5px solid #e2e8f0",
+      letterSpacing: "0.1em",
+      background: C.borderLight,
+      borderBottom: `1px solid ${C.border}`,
     },
     td: {
-      padding: "13px 16px",
-      borderBottom: "1px solid #f1f5f9",
-      color: "#334155",
+      padding: "12px 16px",
+      borderBottom: `1px solid ${C.borderLight}`,
+      color: C.ink,
       verticalAlign: "middle",
     },
     mono: {
-      fontFamily: "monospace",
-      fontSize: 12,
-      background: "#f1f5f9",
-      padding: "3px 6px",
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 11,
+      background: C.bgAlt,
+      padding: "4px 8px",
       borderRadius: 4,
-      color: "#475569",
+      color: C.accentLight,
       letterSpacing: "0.02em",
     },
     activePill: {
-      display: "inline-block",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
       padding: "3px 10px",
-      background: "#dcfce7",
-      color: "#15803d",
-      borderRadius: 20,
+      background: C.greenFaint,
+      color: C.greenText,
+      borderRadius: 999,
       fontWeight: 600,
-      fontSize: 12,
+      fontSize: 11,
+      border: `1px solid ${C.greenBorder}`,
     },
     offlinePill: {
-      display: "inline-block",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
       padding: "3px 10px",
-      background: "#f1f5f9",
-      color: "#64748b",
-      borderRadius: 20,
+      background: C.indigoFaint,
+      color: "#818cf8",
+      borderRadius: 999,
       fontWeight: 600,
-      fontSize: 12,
+      fontSize: 11,
+      border: `1px solid ${C.indigoBorder}`,
     },
     deleteBtn: {
       padding: "6px 14px",
-      background: "#fff",
-      color: "#dc2626",
-      border: "1.5px solid #fca5a5",
-      borderRadius: 7,
+      background: "transparent",
+      color: C.redText,
+      border: `1px solid ${C.redBorder}`,
+      borderRadius: 6,
       cursor: "pointer",
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 500,
       display: "flex",
       alignItems: "center",
@@ -286,9 +326,9 @@ function UserManagement({ api }) {
     /* empty / spinner */
     empty: {
       textAlign: "center",
-      padding: "48px 24px",
-      color: "#94a3b8",
-      fontSize: 14,
+      padding: "60px 24px",
+      color: C.inkLight,
+      fontSize: 13,
     },
     spinnerWrap: {
       display: "flex",
@@ -300,20 +340,21 @@ function UserManagement({ api }) {
     overlay: {
       position: "fixed",
       inset: 0,
-      background: "rgba(15,23,42,.45)",
-      backdropFilter: "blur(3px)",
+      background: "rgba(0,0,0,0.72)",
+      backdropFilter: "blur(4px)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       zIndex: 1000,
     },
     dialog: {
-      background: "#fff",
+      background: C.surface,
       borderRadius: 14,
-      padding: "32px 36px",
+      border: `1px solid ${C.border}`,
+      padding: "28px 28px",
       maxWidth: 420,
       width: "90%",
-      boxShadow: "0 25px 60px rgba(0,0,0,.2)",
+      boxShadow: "0 24px 56px rgba(0,0,0,0.7)",
       textAlign: "center",
     },
     dialogIcon: {
@@ -321,14 +362,14 @@ function UserManagement({ api }) {
       marginBottom: 12,
     },
     dialogTitle: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: 700,
-      color: "#1e293b",
+      color: C.ink,
       marginBottom: 8,
     },
     dialogBody: {
-      fontSize: 14,
-      color: "#64748b",
+      fontSize: 13,
+      color: C.inkMid,
       marginBottom: 24,
       lineHeight: 1.6,
     },
@@ -338,34 +379,36 @@ function UserManagement({ api }) {
       justifyContent: "center",
     },
     cancelBtn: {
-      padding: "10px 24px",
-      background: "#f1f5f9",
-      color: "#475569",
-      border: "none",
-      borderRadius: 8,
+      padding: "8px 20px",
+      background: "transparent",
+      color: C.inkMid,
+      border: `1px solid ${C.border}`,
+      borderRadius: 6,
       cursor: "pointer",
-      fontWeight: 600,
-      fontSize: 14,
+      fontWeight: 500,
+      fontSize: 12,
+      transition: "all .15s",
     },
     confirmDeleteBtn: {
-      padding: "10px 24px",
-      background: "#dc2626",
+      padding: "8px 20px",
+      background: C.redText,
       color: "#fff",
       border: "none",
-      borderRadius: 8,
+      borderRadius: 6,
       cursor: "pointer",
-      fontWeight: 600,
-      fontSize: 14,
+      fontWeight: 500,
+      fontSize: 12,
       opacity: 1,
+      transition: "background .15s",
     },
   };
 
   const Spinner = () => (
     <div style={s.spinnerWrap}>
       <div style={{
-        width: 32, height: 32,
-        border: "3px solid #e5e7eb",
-        borderTop: "3px solid #7c3aed",
+        width: 26, height: 26,
+        border: `2px solid ${C.borderLight}`,
+        borderTop: `2px solid ${C.accentLight}`,
         borderRadius: "50%",
         animation: "umSpin .8s linear infinite",
       }} />
@@ -457,21 +500,34 @@ function UserManagement({ api }) {
                   onMouseLeave={e => e.currentTarget.style.background = ""}
                 >
                   <td style={s.td}>
-                    <span style={{ fontWeight: 600, color: "#1e293b" }}>{u.name}</span>
-                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{u.email}</div>
+                    <span style={{ fontWeight: 500, color: C.ink }}>{u.name}</span>
+                    <div style={{ fontSize: 11, color: C.inkMid, marginTop: 2 }}>{u.email}</div>
                   </td>
                   <td style={s.td}>
                     <span style={s.mono} title={u.id}>{u.id.substring(0, 8)}…</span>
                   </td>
                   <td style={s.td}>
                     {u.is_active
-                      ? <span style={s.activePill}>● Active</span>
-                      : <span style={s.offlinePill}>○ Offline</span>}
+                      ? <span style={s.activePill}>
+                          <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: C.greenText }}></span>
+                          Active
+                        </span>
+                      : <span style={s.offlinePill}>
+                          <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: "#818cf8" }}></span>
+                          Offline
+                        </span>}
                   </td>
                   <td style={s.td}>{u.total_shifts ?? "—"}</td>
-                  <td style={{ ...s.td, color: "#64748b", fontSize: 12 }}>
+                  <td style={{ ...s.td, color: C.inkMid, fontSize: 12 }}>
                     {u.created_at
-                      ? new Date(u.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                      ? new Date(u.created_at).toLocaleString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                       : "—"}
                   </td>
                   <td style={s.td}>

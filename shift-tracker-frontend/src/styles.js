@@ -195,12 +195,13 @@ export const GLOBAL_CSS = `
 
   /* ── Manager toggle button ── */
   .ag-mgr-toggle {
-    position: fixed; top: 14px; right: 14px; z-index: 9999;
-    padding: 7px 14px;
+    position: fixed; top: 10px; right: 120px; z-index: 9999;
+    padding: 8px 12px;
     background: ${C.raised}; border: 1px solid ${C.border};
     border-radius: 6px; color: ${C.accentLight};
-    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600;
     cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center;
   }
   .ag-mgr-toggle:hover { border-color: ${C.accentLight}; background: ${C.bgAlt}; }
 `;

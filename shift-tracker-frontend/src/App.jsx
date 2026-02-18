@@ -24,7 +24,7 @@ function App() {
     "Database Issue",
   ];
 
-  const API = "http://192.168.74.152:5000";
+  const API = "http://172.16.8.50:5000";
 
   // ── Inject global CSS once ──────────────────────────────────────────────────
   useEffect(() => {
@@ -249,8 +249,9 @@ function App() {
       <button
         className="ag-mgr-toggle"
         onClick={() => setShowManager((s) => !s)}
+        title={showManager ? "Agent View" : "Manager View"}
       >
-        {showManager ? "← Agent View" : "Manager ↗"}
+        {showManager ? "👤" : "⚙️"}
       </button>
 
       {/* ══════════════════════════════════════════════════════════════════════
@@ -275,7 +276,7 @@ function App() {
                   <path d="M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h1 style={styles.loginTitle}>Shift Management</h1>
+              {/* <h1 style={styles.loginTitle}>Shift Management</h1> */}
               <p style={styles.loginSubtitle}>Select your profile to begin your shift</p>
             </div>
 

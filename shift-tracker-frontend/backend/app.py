@@ -4,10 +4,14 @@ import psycopg2
 from psycopg2 import pool
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import statistics
+import pytz
 
 load_dotenv()
+
+# Set IST timezone
+IST = pytz.timezone('Asia/Kolkata')
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -38,6 +42,17 @@ def get_db_connection():
 def return_connection(conn):
     if conn:
         connection_pool.putconn(conn)
+
+def format_ist_datetime(dt):
+    """Convert datetime to IST and return ISO format string"""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        # Assume UTC if no timezone
+        dt = dt.replace(tzinfo=timezone.utc)
+    # Convert to IST
+    ist_dt = dt.astimezone(IST)
+    return ist_dt.isoformat()
 
 
 # ========================================
@@ -416,7 +431,7 @@ def get_shift_summary(shift_id):
             {
                 "number": t[0],
                 "description": t[1],
-                "created_at": t[2].isoformat() if t[2] else None
+                "created_at": format_ist_datetime(t[2])
             }
             for t in cur.fetchall()
         ]
@@ -431,7 +446,7 @@ def get_shift_summary(shift_id):
                 "monitor": a[0],
                 "type": a[1],
                 "comment": a[2],
-                "created_at": a[3].isoformat() if a[3] else None
+                "created_at": format_ist_datetime(a[3])
             }
             for a in cur.fetchall()
         ]
@@ -444,7 +459,7 @@ def get_shift_summary(shift_id):
         incidents = [
             {
                 "description": i[0],
-                "created_at": i[1].isoformat() if i[1] else None
+                "created_at": format_ist_datetime(i[1])
             }
             for i in cur.fetchall()
         ]
@@ -457,7 +472,7 @@ def get_shift_summary(shift_id):
         adhoc_tasks = [
             {
                 "task": a[0],
-                "created_at": a[1].isoformat() if a[1] else None
+                "created_at": format_ist_datetime(a[1])
             }
             for a in cur.fetchall()
         ]
@@ -466,8 +481,8 @@ def get_shift_summary(shift_id):
         
         return jsonify({
             "agent_id": str(shift[0]),
-            "start_time": shift[1].isoformat() if shift[1] else None,
-            "end_time": shift[2].isoformat() if shift[2] else None,
+            "start_time": format_ist_datetime(shift[1]),
+            "end_time": format_ist_datetime(shift[2]),
             "triaged_count": shift[3] or 0,
             "ticket_count": len(tickets),
             "alert_count": len(alerts),
@@ -504,8 +519,10 @@ def get_active_agents():
         cur = conn.cursor()
         cur.execute("""
             SELECT s.id, s.agent_id, s.login_time, s.triaged_count,
-                   EXTRACT(EPOCH FROM (NOW() - s.login_time))/3600 as hours_active
+                   EXTRACT(EPOCH FROM (NOW() - s.login_time))/3600 as hours_active,
+                   COALESCE(ag.name, 'Unknown Agent') as agent_name
             FROM shifts s
+            LEFT JOIN agents ag ON s.agent_id = ag.id
             WHERE s.logout_time IS NULL
             ORDER BY s.login_time DESC;
         """)
@@ -513,7 +530,8 @@ def get_active_agents():
             {
                 "shift_id": str(a[0]) if a[0] else None,
                 "agent_id": str(a[1]),
-                "login_time": a[2].isoformat() if a[2] else None,
+                "agent_name": a[5],
+                "login_time": format_ist_datetime(a[2]),
                 "triaged_count": a[3] or 0,
                 "hours_active": round(float(a[4] or 0), 2)
             }
@@ -545,31 +563,35 @@ def get_shifts():
         cur = conn.cursor()
         
         query = """
-            SELECT id, agent_id, login_time, logout_time, triaged_count,
-                   EXTRACT(EPOCH FROM (COALESCE(logout_time, NOW()) - login_time))/3600 as duration_hours
-            FROM shifts WHERE 1=1
+            SELECT s.id, s.agent_id, s.login_time, s.logout_time, s.triaged_count,
+                   EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600 as duration_hours,
+                   COALESCE(ag.name, 'Unknown Agent') as agent_name
+            FROM shifts s
+            LEFT JOIN agents ag ON s.agent_id = ag.id
+            WHERE 1=1
         """
         params = []
         
         if start_date:
-            query += " AND login_time >= %s"
+            query += " AND s.login_time >= %s"
             params.append(start_date)
         if end_date:
-            query += " AND login_time <= %s"
+            query += " AND s.login_time <= %s"
             params.append(end_date + ' 23:59:59')
         if agent_id:
-            query += " AND agent_id = %s"
-            params.append(agent_id)
+            query += " AND ag.name ILIKE %s"
+            params.append('%' + agent_id + '%')
         
-        query += " ORDER BY login_time DESC LIMIT 1000;"
+        query += " ORDER BY s.login_time DESC LIMIT 1000;"
         
         cur.execute(query, params)
         shifts = [
             {
                 "id": str(s[0]) if s[0] else None,
                 "agent_id": str(s[1]),
-                "login_time": s[2].isoformat() if s[2] else None,
-                "logout_time": s[3].isoformat() if s[3] else None,
+                "agent_name": s[6],
+                "login_time": format_ist_datetime(s[2]),
+                "logout_time": format_ist_datetime(s[3]),
                 "triaged_count": s[4] or 0,
                 "duration_hours": round(float(s[5] or 0), 2)
             }
@@ -686,6 +708,11 @@ def get_agent_stats(agent_id):
             
         cur = conn.cursor()
         
+        # Get agent name
+        cur.execute("SELECT COALESCE(name, 'Unknown Agent') FROM agents WHERE id = %s;", (agent_id,))
+        result = cur.fetchone()
+        agent_name = result[0] if result else "Unknown Agent"
+        
         # Total shifts
         cur.execute("SELECT COUNT(*) FROM shifts WHERE agent_id = %s;", (agent_id,))
         total_shifts = cur.fetchone()[0]
@@ -707,8 +734,8 @@ def get_agent_stats(agent_id):
         recent_shifts = [
             {
                 "id": str(s[0]) if s[0] else None,
-                "login_time": s[1].isoformat() if s[1] else None,
-                "logout_time": s[2].isoformat() if s[2] else None,
+                "login_time": format_ist_datetime(s[1]),
+                "logout_time": format_ist_datetime(s[2]),
                 "triaged_count": s[3] or 0,
                 "duration_hours": round(float(s[4] or 0), 2)
             }
@@ -718,6 +745,7 @@ def get_agent_stats(agent_id):
         cur.close()
         return jsonify({
             "agent_id": agent_id,
+            "agent_name": agent_name,
             "total_shifts": total_shifts,
             "total_triaged": total_triaged,
             "avg_per_shift": avg_per_shift,
@@ -744,8 +772,11 @@ def get_shift_details(shift_id):
         
         # Shift info
         cur.execute("""
-            SELECT agent_id, login_time, logout_time, triaged_count
-            FROM shifts WHERE id = %s;
+            SELECT s.agent_id, s.login_time, s.logout_time, s.triaged_count,
+                   COALESCE(ag.name, 'Unknown Agent') as agent_name
+            FROM shifts s
+            LEFT JOIN agents ag ON s.agent_id = ag.id
+            WHERE s.id = %s;
         """, (shift_id,))
         shift = cur.fetchone()
         
@@ -762,7 +793,7 @@ def get_shift_details(shift_id):
             {
                 "number": t[0],
                 "description": t[1],
-                "created_at": t[2].isoformat() if t[2] else None
+                "created_at": format_ist_datetime(t[2])
             }
             for t in cur.fetchall()
         ]
@@ -777,7 +808,7 @@ def get_shift_details(shift_id):
                 "monitor": a[0],
                 "type": a[1],
                 "comment": a[2],
-                "created_at": a[3].isoformat() if a[3] else None
+                "created_at": format_ist_datetime(a[3])
             }
             for a in cur.fetchall()
         ]
@@ -790,7 +821,7 @@ def get_shift_details(shift_id):
         incidents = [
             {
                 "description": i[0],
-                "created_at": i[1].isoformat() if i[1] else None
+                "created_at": format_ist_datetime(i[1])
             }
             for i in cur.fetchall()
         ]
@@ -803,7 +834,7 @@ def get_shift_details(shift_id):
         adhoc_tasks = [
             {
                 "task": t[0],
-                "created_at": t[1].isoformat() if t[1] else None
+                "created_at": format_ist_datetime(t[1])
             }
             for t in cur.fetchall()
         ]
@@ -811,8 +842,9 @@ def get_shift_details(shift_id):
         cur.close()
         return jsonify({
             "agent_id": str(shift[0]),
-            "login_time": shift[1].isoformat() if shift[1] else None,
-            "logout_time": shift[2].isoformat() if shift[2] else None,
+            "agent_name": shift[4],
+            "login_time": format_ist_datetime(shift[1]),
+            "logout_time": format_ist_datetime(shift[2]),
             "triaged_count": shift[3] or 0,
             "tickets": tickets,
             "alerts": alerts,
@@ -864,6 +896,7 @@ def get_advanced_analytics():
         # Agent Rankings (with ticket, alert, incident, adhoc counts)
         cur.execute("""
             SELECT s.agent_id,
+                   COALESCE(ag.name, 'Unknown Agent') as agent_name,
                    COUNT(DISTINCT s.id) as shift_count,
                    COALESCE(SUM(s.triaged_count), 0) as total_triaged,
                    COALESCE(AVG(s.triaged_count), 0) as avg_triaged,
@@ -879,8 +912,9 @@ def get_advanced_analytics():
             LEFT JOIN alerts a ON a.shift_id = s.id
             LEFT JOIN incident_status i ON i.shift_id = s.id
             LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
+            LEFT JOIN agents ag ON s.agent_id = ag.id
             WHERE s.login_time >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY s.agent_id
+            GROUP BY s.agent_id, ag.name
             HAVING COUNT(DISTINCT s.id) >= 1
             ORDER BY productivity_rate DESC;
         """)
@@ -888,16 +922,17 @@ def get_advanced_analytics():
             {
                 "rank": idx + 1,
                 "agent_id": str(r[0]),
-                "shift_count": r[1],
-                "total_triaged": int(r[2] or 0),
-                "avg_triaged": round(float(r[3] or 0), 2),
-                "productivity_rate": round(float(r[4] or 0), 2),
-                "total_tickets": int(r[5] or 0),
-                "total_alerts": int(r[6] or 0),
-                "total_incidents": int(r[7] or 0),
-                "total_adhoc": int(r[8] or 0),
-                "avg_triaged_per_shift": round(float(r[9] or 0), 2),
-                "avg_shift_hours": round(float(r[10] or 0), 2)
+                "agent_name": r[1],
+                "shift_count": r[2],
+                "total_triaged": int(r[3] or 0),
+                "avg_triaged": round(float(r[4] or 0), 2),
+                "productivity_rate": round(float(r[5] or 0), 2),
+                "total_tickets": int(r[6] or 0),
+                "total_alerts": int(r[7] or 0),
+                "total_incidents": int(r[8] or 0),
+                "total_adhoc": int(r[9] or 0),
+                "avg_triaged_per_shift": round(float(r[10] or 0), 2),
+                "avg_shift_hours": round(float(r[11] or 0), 2)
             }
             for idx, r in enumerate(cur.fetchall())
         ]
@@ -1346,7 +1381,7 @@ def list_users():
                 "name":         r[1],
                 "email":        r[2],
                 "role":         r[3],
-                "created_at":   r[4].isoformat() if r[4] else None,
+                "created_at":   format_ist_datetime(r[4]),
                 "total_shifts": int(r[5]),
                 "is_active":    bool(r[6]),
             }
@@ -1401,7 +1436,7 @@ def create_user():
             "name":       row[1],
             "email":      row[2],
             "role":       row[3],
-            "created_at": row[4].isoformat() if row[4] else None,
+            "created_at": format_ist_datetime(row[4]),
         }
         print(f"✅ New agent created: {new_user['name']} ({new_user['email']})  UUID={new_user['id']}")
         return jsonify({"message": "Agent created successfully", "user": new_user}), 201
