@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from "react";
  *   api  — base URL string, e.g. "http://192.168.74.152:5000"
  */
 function UserManagement({ api }) {
-  const API = api || "http://192.168.74.152:5000";
+  const API = api || "http://192.168.74.93:5000";
 
   /* ─── state ─────────────────────────────────────────────────────────────── */
   const [users, setUsers]         = useState([]);
