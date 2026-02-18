@@ -369,10 +369,53 @@ function StatRow({ label, value, color = C.ink }) {
 }
 
 /* ══════════════════ AGENT DETAIL SLIDE-IN PANEL ══ */
-function AgentDetailPanel({ agent, onClose, detailLoading = false }) {
+function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDuration, currentParams = "days=30" }) {
   if (!agent) return null;
   const name  = agent.agent_name || (agent.agent_id?.slice(0,10)+"…");
   const color = PALETTE[Math.abs((name.charCodeAt(0)||65)-65) % PALETTE.length];
+
+  // ── Internal duration state ──
+  const todayStr2 = toISODate(new Date());
+  const [panelMode,       setPanelMode]       = useState(() => currentParams.startsWith("start_date") ? "custom" : "preset");
+  const [panelPreset,     setPanelPreset]     = useState(() => {
+    const m = currentParams.match(/days=(\d+)/);
+    return m ? parseInt(m[1]) : 30;
+  });
+  const [panelFrom,       setPanelFrom]       = useState(() => {
+    const m = currentParams.match(/start_date=([^&]+)/);
+    return m ? m[1] : toISODate(new Date(Date.now() - 30*86400000));
+  });
+  const [panelTo,         setPanelTo]         = useState(() => {
+    const m = currentParams.match(/end_date=([^&]+)/);
+    return m ? m[1] : todayStr2;
+  });
+  const [showPanelPicker, setShowPanelPicker] = useState(false);
+  const panelPickerRef = useRef(null);
+
+  useEffect(() => {
+    if (!showPanelPicker) return;
+    const h = (e) => { if (panelPickerRef.current && !panelPickerRef.current.contains(e.target)) setShowPanelPicker(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [showPanelPicker]);
+
+  const buildPanelParams = () => panelMode === "custom"
+    ? `start_date=${panelFrom}&end_date=${panelTo}`
+    : `days=${panelPreset}`;
+
+  const applyPanelPreset = (days) => {
+    setPanelPreset(days); setPanelMode("preset"); setShowPanelPicker(false);
+    if (onChangeDuration) onChangeDuration(`days=${days}`);
+  };
+  const applyPanelCustom = () => {
+    if (!panelFrom || !panelTo || panelFrom > panelTo) return;
+    setPanelMode("custom"); setShowPanelPicker(false);
+    if (onChangeDuration) onChangeDuration(`start_date=${panelFrom}&end_date=${panelTo}`);
+  };
+
+  const panelRangeLabel = panelMode === "custom"
+    ? `${panelFrom} → ${panelTo}`
+    : `Last ${panelPreset} days`;
 
   const ticketTrend   = agent.ticket_trend   || [];
   const alertTrend    = agent.alert_trend    || [];
@@ -406,7 +449,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false }) {
         onClick={e=>e.stopPropagation()}>
 
         {/* Header */}
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12 }}>
           <div style={{ display:"flex",alignItems:"center",gap:14 }}>
             <div style={{ width:48,height:48,borderRadius:"50%",background:color+"22",border:`2px solid ${color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:700,color,fontFamily:"'Inter',sans-serif" }}>
               {name.charAt(0).toUpperCase()}
@@ -414,9 +457,80 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false }) {
             <div>
               <div style={{ fontFamily:"'Inter',sans-serif",fontSize:17,fontWeight:700,color:C.ink }}>{name}</div>
               <div style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:C.inkMid,marginTop:2 }}>{agent.agent_id}</div>
+              <div style={{ fontFamily:"'Inter',sans-serif",fontSize:10,color:C.accentLight,marginTop:3 }}>{panelRangeLabel}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background:"transparent",border:`1px solid ${C.border}`,color:C.inkMid,borderRadius:6,padding:"6px 14px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontSize:12 }}>✕ Close</button>
+          <div style={{ display:"flex",gap:8,alignItems:"center",position:"relative" }}>
+            {/* Duration pills */}
+            <div style={{ display:"flex",gap:3,background:C.bgAlt,border:`1px solid ${C.border}`,borderRadius:8,padding:"3px 4px" }}>
+              {DURATION_OPTIONS.map(opt=>(
+                <button key={opt.days} onClick={()=>applyPanelPreset(opt.days)} style={{
+                  background: panelMode==="preset"&&panelPreset===opt.days ? C.accent : "transparent",
+                  border:"none", color: panelMode==="preset"&&panelPreset===opt.days ? "#fff" : C.inkMid,
+                  borderRadius:5, padding:"3px 9px", fontFamily:"'Inter',sans-serif",
+                  fontSize:10, fontWeight:600, cursor:"pointer", transition:"all .15s",
+                }}>{opt.label}</button>
+              ))}
+              <button onClick={()=>setShowPanelPicker(v=>!v)} style={{
+                background: panelMode==="custom" ? C.accent : showPanelPicker ? C.accentFaint : "transparent",
+                border: showPanelPicker&&panelMode!=="custom" ? `1px solid ${C.accentBorder}` : "none",
+                color: panelMode==="custom"||showPanelPicker ? (panelMode==="custom"?"#fff":C.accentLight) : C.inkMid,
+                borderRadius:5, padding:"3px 9px", fontFamily:"'Inter',sans-serif",
+                fontSize:10, fontWeight:600, cursor:"pointer", transition:"all .15s",
+                display:"flex", alignItems:"center", gap:4,
+              }}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{flexShrink:0}}>
+                  <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                  <path d="M1 6h14" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Custom
+              </button>
+            </div>
+            {/* Date picker dropdown */}
+            {showPanelPicker && (
+              <div ref={panelPickerRef} style={{
+                position:"absolute", top:"36px", right:0,
+                background:C.surfaceRaised, border:`1px solid ${C.border}`,
+                borderRadius:10, padding:"16px 18px", zIndex:400,
+                boxShadow:"0 8px 32px rgba(0,0,0,0.55)", minWidth:260,
+                animation:"aa-rise .15s ease",
+              }}>
+                <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:12 }}>Custom Date Range</div>
+                <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+                  <div>
+                    <div style={{ fontSize:11,color:C.inkLight,fontFamily:"'Inter',sans-serif",marginBottom:4 }}>From</div>
+                    <input type="date" value={panelFrom} max={panelTo||todayStr2}
+                      onChange={e=>setPanelFrom(e.target.value)}
+                      style={{ width:"100%",background:C.bgAlt,border:`1px solid ${C.border}`,borderRadius:6,padding:"6px 10px",color:C.ink,fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none",colorScheme:"dark" }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11,color:C.inkLight,fontFamily:"'Inter',sans-serif",marginBottom:4 }}>To</div>
+                    <input type="date" value={panelTo} min={panelFrom} max={todayStr2}
+                      onChange={e=>setPanelTo(e.target.value)}
+                      style={{ width:"100%",background:C.bgAlt,border:`1px solid ${C.border}`,borderRadius:6,padding:"6px 10px",color:C.ink,fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none",colorScheme:"dark" }}
+                    />
+                  </div>
+                  {panelFrom&&panelTo&&panelFrom>panelTo&&(
+                    <div style={{ fontSize:11,color:C.redText,fontFamily:"'Inter',sans-serif" }}>⚠ From must be before To</div>
+                  )}
+                  <div style={{ display:"flex",gap:6,marginTop:2 }}>
+                    <button onClick={applyPanelCustom} disabled={!panelFrom||!panelTo||panelFrom>panelTo} style={{
+                      flex:1,background:C.accent,border:"none",color:"#fff",borderRadius:6,padding:"7px 0",
+                      fontFamily:"'Inter',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",
+                      opacity:(!panelFrom||!panelTo||panelFrom>panelTo)?0.4:1,
+                    }}>Apply</button>
+                    <button onClick={()=>setShowPanelPicker(false)} style={{
+                      flex:1,background:"transparent",border:`1px solid ${C.border}`,color:C.inkMid,
+                      borderRadius:6,padding:"7px 0",fontFamily:"'Inter',sans-serif",fontSize:12,cursor:"pointer",
+                    }}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <button onClick={onClose} style={{ background:"transparent",border:`1px solid ${C.border}`,color:C.inkMid,borderRadius:6,padding:"6px 14px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontSize:12 }}>✕ Close</button>
+          </div>
         </div>
 
         {/* KPI grid */}
@@ -572,11 +686,10 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
     return () => document.removeEventListener("mousedown", handler);
   }, [showDatePicker]);
 
-  const openAgentDetail = async (agentRow) => {
-    setSelectedAgent(agentRow);
+  const fetchAgentDetail = async (agentRow, params) => {
     setDetailLoading(true);
     try {
-      const res = await fetch(`${api}/manager/agent-detail/${agentRow.agent_id}?${buildParams()}`);
+      const res = await fetch(`${api}/manager/agent-detail/${agentRow.agent_id}?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const detail = await res.json();
       setSelectedAgent(prev => prev ? { ...prev, ...detail } : null);
@@ -585,6 +698,18 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const openAgentDetail = async (agentRow) => {
+    setSelectedAgent(agentRow);
+    await fetchAgentDetail(agentRow, buildParams());
+  };
+
+  const handleAgentDurationChange = (params) => {
+    setSelectedAgent(prev => {
+      if (prev) fetchAgentDetail(prev, params);
+      return prev;
+    });
   };
 
   if (loading && !data) {
@@ -664,7 +789,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   return (
     <div style={{ background:C.bg,minHeight:"100vh",fontFamily:"'Inter',sans-serif" }}>
       <style>{GLOBAL_CSS}</style>
-      {selectedAgent && <AgentDetailPanel agent={selectedAgent} onClose={()=>setSelectedAgent(null)} detailLoading={detailLoading} />}
+      {selectedAgent && <AgentDetailPanel agent={selectedAgent} onClose={()=>setSelectedAgent(null)} detailLoading={detailLoading} onChangeDuration={handleAgentDurationChange} currentParams={buildParams()} />}
 
       {/* Topbar */}
       <div style={{ background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"0 32px",height:"52px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"relative",zIndex:200 }}>

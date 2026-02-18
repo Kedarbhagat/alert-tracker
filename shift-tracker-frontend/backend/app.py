@@ -1493,16 +1493,46 @@ def get_agent_detail(agent_id):
             for r in cur.fetchall()
         ]
 
+        # KPI aggregates for the selected date range
+        cur.execute("""
+            SELECT
+                COUNT(DISTINCT s.id)                                                              AS shift_count,
+                COALESCE(SUM(s.triaged_count), 0)                                                AS total_triaged,
+                COUNT(DISTINCT t.id)                                                              AS total_tickets,
+                COUNT(DISTINCT a.id)                                                              AS total_alerts,
+                COUNT(DISTINCT i.id)                                                              AS total_incidents,
+                COUNT(DISTINCT ad.id)                                                             AS total_adhoc,
+                COALESCE(AVG(s.triaged_count), 0)                                                AS avg_triaged_per_shift,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600), 0) AS avg_shift_hours
+            FROM shifts s
+            LEFT JOIN tickets        t  ON t.shift_id  = s.id
+            LEFT JOIN alerts         a  ON a.shift_id  = s.id
+            LEFT JOIN incident_status i ON i.shift_id  = s.id
+            LEFT JOIN adhoc_tasks    ad ON ad.shift_id = s.id
+            WHERE s.agent_id = %s AND s.login_time >= %s AND s.login_time <= %s;
+        """, (agent_id, date_from, date_to_inclusive))
+        kpi_row = cur.fetchone()
+
         cur.close()
         return jsonify({
             "agent_id": agent_id,
-            "alert_breakdown": alert_breakdown,
+            # KPI aggregates — period-sensitive
+            "shift_count":          int(kpi_row[0] or 0),
+            "total_triaged":        int(kpi_row[1] or 0),
+            "total_tickets":        int(kpi_row[2] or 0),
+            "total_alerts":         int(kpi_row[3] or 0),
+            "total_incidents":      int(kpi_row[4] or 0),
+            "total_adhoc":          int(kpi_row[5] or 0),
+            "avg_triaged_per_shift": round(float(kpi_row[6] or 0), 2),
+            "avg_shift_hours":       round(float(kpi_row[7] or 0), 2),
+            # Trend / breakdown data
+            "alert_breakdown":  alert_breakdown,
             "monitor_breakdown": monitor_breakdown,
-            "ticket_trend": ticket_trend,
-            "alert_trend": alert_trend,
-            "incident_trend": incident_trend,
-            "adhoc_trend": adhoc_trend,
-            "recent_shifts": recent_shifts,
+            "ticket_trend":     ticket_trend,
+            "alert_trend":      alert_trend,
+            "incident_trend":   incident_trend,
+            "adhoc_trend":      adhoc_trend,
+            "recent_shifts":    recent_shifts,
         })
     except Exception as e:
         print(f"❌ Error in get_agent_detail: {e}")
