@@ -80,6 +80,41 @@ function App() {
   const [handoverTo, setHandoverTo]                   = useState("");
   const [maintenanceLog, setMaintenanceLog]           = useState("");
 
+  // ── Notification bell state ────────────────────────────────────────────────
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [handovers,         setHandovers]         = useState([]);
+  const [handoversLoading,  setHandoversLoading]  = useState(false);
+  const [handoversSeen,     setHandoversSeen]     = useState(() => {
+    try { return parseInt(localStorage.getItem("handoversSeen") || "0", 10); } catch { return 0; }
+  });
+
+  const fetchHandovers = async () => {
+    setHandoversLoading(true);
+    try {
+      const res = await fetch(`${API}/manager/handovers`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      setHandovers(d.handovers || []);
+    } catch (e) {
+      console.error("Failed to fetch handovers:", e);
+    } finally {
+      setHandoversLoading(false);
+    }
+  };
+
+  const openNotifications = () => {
+    if (!showNotifications) fetchHandovers();
+    setShowNotifications(v => !v);
+  };
+
+  const markAllSeen = () => {
+    const n = handovers.length;
+    setHandoversSeen(n);
+    try { localStorage.setItem("handoversSeen", String(n)); } catch {}
+  };
+
+  const unseenCount = Math.max(0, handovers.length - handoversSeen);
+
   // ── Restore session from localStorage ──────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem("activeShift");
@@ -315,6 +350,162 @@ function App() {
   // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div style={styles.container}>
+
+      {/* ── Notification panel animation ── */}
+      <style>{`
+        @keyframes ag-rise { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        @keyframes ag-bell-shake {
+          0%,100% { transform: rotate(0deg); }
+          15%     { transform: rotate(14deg); }
+          30%     { transform: rotate(-10deg); }
+          45%     { transform: rotate(8deg); }
+          60%     { transform: rotate(-5deg); }
+          75%     { transform: rotate(3deg); }
+        }
+        .ag-notif-bell { animation: ag-bell-shake 1.4s ease 0.3s 2; transform-origin: top center; }
+      `}</style>
+
+      {/* ── Notification bell ── */}
+      <button
+        className="ag-notif-btn"
+        onClick={openNotifications}
+        title="Shift Handovers"
+        style={{
+          position:"fixed", top:8, right:190, zIndex:900,
+          width:38, height:38, borderRadius:"50%",
+          background: showNotifications ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.07)",
+          border: showNotifications ? "1px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.13)",
+          cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+          transition:"all .18s", backdropFilter:"blur(8px)", position:"fixed",
+        }}
+      >
+        {/* Bell icon — filled style */}
+        <svg
+          className={unseenCount > 0 ? "ag-notif-bell" : ""}
+          width="18" height="18" viewBox="0 0 24 24"
+          fill={showNotifications ? "#3b82f6" : "#c9d1d9"}
+          style={{ display:"block" }}
+        >
+          <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 0 0-5-5.92V4a1 1 0 0 0-2 0v1.08A6 6 0 0 0 6 11v5l-2 2v1h16v-1l-2-2z"/>
+        </svg>
+        {unseenCount > 0 && (
+          <span style={{
+            position:"absolute", top:1, right:1,
+            background:"#ef4444", color:"#fff",
+            borderRadius:"50%", minWidth:17, height:17,
+            fontSize:9, fontWeight:800,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontFamily:"'Inter',sans-serif", lineHeight:1,
+            border:"2px solid #0d1117", padding:"0 3px",
+            boxSizing:"border-box",
+          }}>{unseenCount > 9 ? "9+" : unseenCount}</span>
+        )}
+      </button>
+
+      {/* ── Notification panel ── */}
+      {showNotifications && (
+        <div onClick={() => setShowNotifications(false)}
+          style={{ position:"fixed", inset:0, zIndex:800 }} />
+      )}
+      {showNotifications && (
+        <div style={{
+          position:"fixed", top:60, right:14, zIndex:900,
+          width:380, maxHeight:520,
+          background:"#161b22", border:"1px solid #30363d",
+          borderRadius:12, boxShadow:"0 12px 40px rgba(0,0,0,0.7)",
+          display:"flex", flexDirection:"column",
+          fontFamily:"'Inter',sans-serif",
+          animation:"ag-rise .18s ease",
+        }}>
+          {/* Panel header */}
+          <div style={{ padding:"14px 16px 10px", borderBottom:"1px solid #30363d",
+            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span style={{ fontSize:13, fontWeight:700, color:"#e6edf3" }}>Shift Handovers</span>
+              {handovers.length > 0 && (
+                <span style={{ fontSize:10, color:"#8b949e", background:"#21262d",
+                  padding:"1px 7px", borderRadius:99, border:"1px solid #30363d" }}>
+                  {handovers.length}
+                </span>
+              )}
+            </div>
+            {unseenCount > 0 && (
+              <button onClick={(e) => { e.stopPropagation(); markAllSeen(); }}
+                style={{ fontSize:11, color:"#3b82f6", background:"none", border:"none",
+                  cursor:"pointer", padding:"2px 6px", borderRadius:5,
+                  fontFamily:"'Inter',sans-serif" }}>
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          {/* Panel body */}
+          <div style={{ overflowY:"auto", maxHeight:440 }}>
+            {handoversLoading ? (
+              <div style={{ padding:32, textAlign:"center", color:"#8b949e", fontSize:12 }}>
+                Loading…
+              </div>
+            ) : handovers.length === 0 ? (
+              <div style={{ padding:32, textAlign:"center" }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>📋</div>
+                <div style={{ fontSize:13, color:"#8b949e" }}>No handovers yet</div>
+              </div>
+            ) : handovers.map((h, i) => (
+              <div key={h.id} style={{
+                padding:"12px 16px",
+                borderBottom: i < handovers.length-1 ? "1px solid #21262d" : "none",
+                background: i < unseenCount ? "rgba(37,99,235,0.05)" : "transparent",
+                transition:"background .15s",
+              }}>
+                {/* From / To row */}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width:26, height:26, borderRadius:"50%",
+                      background:`hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},55%,22%)`,
+                      border:`1.5px solid hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},55%,45%)`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:11, fontWeight:700,
+                      color:`hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},80%,70%)`,
+                    }}>
+                      {(h.from_name||"?").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <span style={{ fontSize:12, fontWeight:600, color:"#e6edf3" }}>{h.from_name}</span>
+                      <span style={{ fontSize:11, color:"#6e7681", marginLeft:5 }}>handed over to</span>
+                      <span style={{ fontSize:12, fontWeight:600, color:"#3b82f6", marginLeft:5 }}>
+                        {h.handover_to}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize:10, color:"#6e7681", whiteSpace:"nowrap", marginLeft:8 }}>
+                    {h.created_at
+                      ? new Date(h.created_at).toLocaleString("en-IN", {
+                          timeZone:"Asia/Kolkata", month:"short", day:"numeric",
+                          hour:"2-digit", minute:"2-digit",
+                        })
+                      : "—"}
+                  </span>
+                </div>
+                {/* Handover note */}
+                <div style={{
+                  fontSize:12, color:"#8b949e", lineHeight:1.5,
+                  background:"#0d1117", borderRadius:6, padding:"7px 10px",
+                  border:"1px solid #21262d", marginLeft:32,
+                }}>
+                  {h.description}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Manager toggle ── */}
       <button
@@ -1096,7 +1287,7 @@ function App() {
 
           </div>{/* /content */}
         </div>
-      )}
+      )}  
     </div>
   );
 }

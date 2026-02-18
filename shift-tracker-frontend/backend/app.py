@@ -1542,6 +1542,54 @@ def get_agent_detail(agent_id):
             return_connection(conn)
 
 
+
+@app.route("/manager/handovers", methods=["GET", "OPTIONS"])
+def get_all_handovers():
+    if request.method == "OPTIONS":
+        return "", 200
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                h.id,
+                h.description,
+                h.handover_to,
+                h.created_at,
+                COALESCE(ag.name, 'Unknown Agent') AS from_name,
+                s.agent_id::text AS agent_id
+            FROM handovers h
+            JOIN shifts s    ON s.id = h.shift_id
+            JOIN agents ag   ON ag.id = s.agent_id
+            ORDER BY h.created_at DESC
+            LIMIT 100;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+
+        handovers = [
+            {
+                "id":          str(r[0]),
+                "description": r[1],
+                "handover_to": r[2],
+                "created_at":  format_ist_datetime(r[3]),
+                "from_name":   r[4],
+                "agent_id":    r[5],
+            }
+            for r in rows
+        ]
+        return jsonify({"handovers": handovers})
+    except Exception as e:
+        print(f"❌ Error in get_all_handovers: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_connection(conn)
+
 # ========================================
 # USER MANAGEMENT ENDPOINTS
 # ========================================
