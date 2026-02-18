@@ -195,7 +195,7 @@ export const GLOBAL_CSS = `
 
   /* ── Manager toggle button ── */
   .ag-mgr-toggle {
-    position: fixed; top: 10px; right: 120px; z-index: 9999;
+    position: fixed; top: 7px; right: 120px; z-index: 9999;
     padding: 8px 12px;
     background: ${C.raised}; border: 1px solid ${C.border};
     border-radius: 6px; color: ${C.accentLight};

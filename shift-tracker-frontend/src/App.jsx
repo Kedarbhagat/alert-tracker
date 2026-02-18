@@ -59,6 +59,9 @@ function App() {
   const [shiftId, setShiftId]             = useState(null);
   const [triagedCount, setTriagedCount]   = useState(0);
   const [showManager, setShowManager]     = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [managerPassword, setManagerPassword]     = useState("");
+  const [passwordError, setPasswordError]         = useState("");
 
   const [ticketInput, setTicketInput]     = useState("");
   const [tickets, setTickets]             = useState([]);
@@ -277,6 +280,33 @@ function App() {
     setMaintenanceLog("");
   };
 
+  const handleManagerToggle = () => {
+    if (showManager) {
+      // If already showing manager, just toggle off
+      setShowManager(false);
+      setShowPasswordModal(false);
+      setManagerPassword("");
+      setPasswordError("");
+    } else {
+      // If trying to enter manager view, show password modal
+      setShowPasswordModal(true);
+      setManagerPassword("");
+      setPasswordError("");
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    if (managerPassword === "p442014") {
+      setShowManager(true);
+      setShowPasswordModal(false);
+      setManagerPassword("");
+      setPasswordError("");
+    } else {
+      setPasswordError("Incorrect password");
+      setManagerPassword("");
+    }
+  };
+
   // ── Shared icon colours ─────────────────────────────────────────────────────
   const iconStroke = C.inkMid;
 
@@ -289,11 +319,145 @@ function App() {
       {/* ── Manager toggle ── */}
       <button
         className="ag-mgr-toggle"
-        onClick={() => setShowManager((s) => !s)}
+        onClick={handleManagerToggle}
         title={showManager ? "Agent View" : "Manager View"}
       >
         {showManager ? "👤" : "⚙️"}
       </button>
+
+      {/* ── Password Modal ── */}
+      {showPasswordModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.72)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setShowPasswordModal(false);
+            setManagerPassword("");
+            setPasswordError("");
+          }}
+        >
+          <div
+            style={{
+              background: C.surface,
+              border: `1px solid ${C.border}`,
+              borderRadius: "14px",
+              padding: "40px",
+              maxWidth: "380px",
+              width: "90%",
+              boxShadow: "0 24px 56px rgba(0,0,0,0.7)",
+              textAlign: "center",
+              animation: "agent-rise .2s ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              background: "rgba(37,99,235,0.15)",
+              border: `1px solid ${C.accentBorder}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 28,
+              margin: "0 auto 18px",
+            }}>
+              🔐
+            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 6, marginTop: 0 }}>
+              Manager Access
+            </h2>
+            <p style={{ fontSize: 13, color: C.inkMid, marginBottom: 24, marginTop: 0 }}>
+              Enter the password to access manager dashboard
+            </p>
+            
+            <input
+              type="password"
+              placeholder="Enter password…"
+              value={managerPassword}
+              onChange={(e) => setManagerPassword(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handlePasswordSubmit()}
+              autoFocus
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                marginBottom: "8px",
+                background: C.bgAlt,
+                border: `1px solid ${passwordError ? C.redBorder : C.border}`,
+                borderRadius: "8px",
+                color: C.ink,
+                fontSize: "13px",
+                fontFamily: "'Inter',sans-serif",
+                outline: "none",
+                transition: "border-color .15s",
+                boxSizing: "border-box",
+              }}
+            />
+            
+            {passwordError && (
+              <div style={{
+                color: C.redText,
+                fontSize: "12px",
+                marginBottom: "16px",
+                fontWeight: 500,
+              }}>
+                {passwordError}
+              </div>
+            )}
+            
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                style={{
+                  flex: 1,
+                  padding: "11px 0",
+                  background: "transparent",
+                  border: `1px solid ${C.border}`,
+                  color: C.inkMid,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  fontFamily: "'Inter',sans-serif",
+                  cursor: "pointer",
+                  transition: "all .15s",
+                }}
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setManagerPassword("");
+                  setPasswordError("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                style={{
+                  flex: 1,
+                  padding: "11px 0",
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  border: "none",
+                  color: "#fff",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  fontFamily: "'Inter',sans-serif",
+                  cursor: "pointer",
+                  transition: "all .15s",
+                }}
+                onClick={handlePasswordSubmit}
+              >
+                Access
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           MANAGER VIEW
