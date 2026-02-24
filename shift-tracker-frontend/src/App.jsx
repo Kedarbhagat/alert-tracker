@@ -10,11 +10,13 @@ function App() {
   const [activeAgentId, setActiveAgentId] = useState(null);
 
   const monitorOptions = [
-    "Payments Monitor",
-    "API Monitor",
-    "Infra Monitor",
-    "Database Monitor",
-    "Security Monitor",
+    "#CC_ONE_MONITORING",
+    "#CC_CARRIER_DISPATCH",
+    "#CC_CARRIER_RATING",
+    "#CC_WATCH_OCEAN",
+    "Gringer Metric",
+    "THD Monitoring",
+    "YMS & CC Farming",
   ];
 
   const alertOptions = [
@@ -24,7 +26,7 @@ function App() {
     "Database Issue",
   ];
 
-  const API = "http://192.168.74.93:5000";
+  const API = "http://192.168.74.152:5000";
 
   // ── Inject global CSS once ──────────────────────────────────────────────────
   useEffect(() => {
@@ -371,29 +373,30 @@ function App() {
         onClick={openNotifications}
         title="Shift Handovers"
         style={{
-          position:"fixed", top:8, right:190, zIndex:900,
-          width:38, height:38, borderRadius:"50%",
-          background: showNotifications ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.07)",
-          border: showNotifications ? "1px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.13)",
+          position:"fixed", top:6, right:188, zIndex:900,
+          width:52, height:52, borderRadius:"50%",
+          background: showNotifications ? "rgba(37,99,235,0.25)" : "rgba(255,255,255,0.12)",
+          border: showNotifications ? "1.5px solid rgba(37,99,235,0.8)" : "1.5px solid rgba(255,255,255,0.25)",
           cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-          transition:"all .18s", backdropFilter:"blur(8px)", position:"fixed",
+          transition:"all .18s", backdropFilter:"blur(8px)",
+          boxShadow: unseenCount > 0 ? "0 0 0 3px rgba(239,68,68,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
         }}
       >
         {/* Bell icon — filled style */}
         <svg
           className={unseenCount > 0 ? "ag-notif-bell" : ""}
-          width="18" height="18" viewBox="0 0 24 24"
-          fill={showNotifications ? "#3b82f6" : "#c9d1d9"}
+          width="26" height="26" viewBox="0 0 24 24"
+          fill={showNotifications ? "#3b82f6" : "#e6edf3"}
           style={{ display:"block" }}
         >
           <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 0 0-5-5.92V4a1 1 0 0 0-2 0v1.08A6 6 0 0 0 6 11v5l-2 2v1h16v-1l-2-2z"/>
         </svg>
         {unseenCount > 0 && (
           <span style={{
-            position:"absolute", top:1, right:1,
+            position:"absolute", top:0, right:0,
             background:"#ef4444", color:"#fff",
-            borderRadius:"50%", minWidth:17, height:17,
-            fontSize:9, fontWeight:800,
+            borderRadius:"50%", minWidth:18, height:18,
+            fontSize:10, fontWeight:800,
             display:"flex", alignItems:"center", justifyContent:"center",
             fontFamily:"'Inter',sans-serif", lineHeight:1,
             border:"2px solid #0d1117", padding:"0 3px",
@@ -410,15 +413,15 @@ function App() {
       {showNotifications && (
         <div style={{
           position:"fixed", top:60, right:14, zIndex:900,
-          width:380, maxHeight:520,
+          width:480, maxHeight:640,
           background:"#161b22", border:"1px solid #30363d",
-          borderRadius:12, boxShadow:"0 12px 40px rgba(0,0,0,0.7)",
+          borderRadius:14, boxShadow:"0 20px 60px rgba(0,0,0,0.8)",
           display:"flex", flexDirection:"column",
           fontFamily:"'Inter',sans-serif",
           animation:"ag-rise .18s ease",
         }}>
           {/* Panel header */}
-          <div style={{ padding:"14px 16px 10px", borderBottom:"1px solid #30363d",
+          <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid #30363d",
             display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -445,7 +448,7 @@ function App() {
           </div>
 
           {/* Panel body */}
-          <div style={{ overflowY:"auto", maxHeight:440 }}>
+          <div style={{ overflowY:"auto", maxHeight:560 }}>
             {handoversLoading ? (
               <div style={{ padding:32, textAlign:"center", color:"#8b949e", fontSize:12 }}>
                 Loading…
@@ -457,7 +460,7 @@ function App() {
               </div>
             ) : handovers.map((h, i) => (
               <div key={h.id} style={{
-                padding:"12px 16px",
+                padding:"14px 20px",
                 borderBottom: i < handovers.length-1 ? "1px solid #21262d" : "none",
                 background: i < unseenCount ? "rgba(37,99,235,0.05)" : "transparent",
                 transition:"background .15s",

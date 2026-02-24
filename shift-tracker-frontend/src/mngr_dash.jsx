@@ -606,7 +606,7 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
 ══════════════════════════════════════════════════════════════════════════ */
 
 function ManagerDashboard() {
-  const API = "http://192.168.74.93:5000";
+  const API = "http://192.168.74.152:5000";
 
   /* ── State ── */
   const [activeView,        setActiveView]        = useState("overview");

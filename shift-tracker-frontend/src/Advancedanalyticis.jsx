@@ -630,7 +630,7 @@ const DURATION_OPTIONS = [
 function toISODate(d) { return d.toISOString().slice(0, 10); }
 
 /* ═══════════════════════════════════════════════ MAIN ══ */
-export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "http://192.168.74.152:5000" }) {
+export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "http://192.168.74.93:5000" }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
