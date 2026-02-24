@@ -10,7 +10,7 @@ function App() {
   const [activeAgentId, setActiveAgentId] = useState(null);
 
   const monitorOptions = [
-    "#CC_ONE_MONITORING",
+    "#CC_ONE_MONITORING", //done
     "#CC-YMS-MONITORING",
     "#CC-CARRIER-RATING-ALERTS-KRUNAL",
     "#CC-CARRIER-DISPATCH-ALERT-KRUNAL-NEW", 
@@ -19,8 +19,8 @@ function App() {
     "#CC-THD-MONITORING",
     "#CC-WWEX-CARRIER-WISE-DISPATCH-ALERTS",
     "#CC-ABERCROMBIE-MONITORING",
-   
-    "#CC_WEATHERFORD_ELITE_MONITORING"
+    "#GRAINGER-CREATION-VOLUME-ALERT" , 
+    "#CC_WEATHERFORD_ELITE_MONITORING"//done
 ,
     "#CC-WATCH-ALL-SERVICES-DOWN ",
     "MONITORING-YMS" ,
