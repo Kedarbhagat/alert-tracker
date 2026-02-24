@@ -53,14 +53,16 @@ function UserManagement({ api }) {
   /* ─── add user ───────────────────────────────────────────────────────────── */
   const handleAdd = async () => {
     const name = newName.trim();
+    const email = newEmail.trim();
     if (!name) return;
+    if (!email) return;
     try {
       setAdding(true);
       setError(null);
       const res = await fetch(`${API}/manager/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email: newEmail.trim() }),
+        body: JSON.stringify({ name, email }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
@@ -453,6 +455,7 @@ function UserManagement({ api }) {
             placeholder="Name"
             value={newName}
             onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleAdd()}
             maxLength={80}
           />
           <input
@@ -496,7 +499,7 @@ function UserManagement({ api }) {
             <tbody>
               {users.map(u => (
                 <tr key={u.id} style={{ transition: "background .1s" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+                  onMouseEnter={e => e.currentTarget.style.background = "#1c2230"}
                   onMouseLeave={e => e.currentTarget.style.background = ""}
                 >
                   <td style={s.td}>

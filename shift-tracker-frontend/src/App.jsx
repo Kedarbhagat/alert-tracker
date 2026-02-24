@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { styles, C, GLOBAL_CSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
 
@@ -106,6 +106,18 @@ function App() {
   const alertOptions = alertOptionsByMonitor[selectedMonitor] ?? alertOptionsByMonitor["default"];
   const [alertComment, setAlertComment]       = useState("");
 
+  // Alert date/time — default to now, user can override
+  const nowIST = () => {
+    const now = new Date();
+    const ist  = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const pad  = (n) => String(n).padStart(2, "0");
+    const date = `${ist.getFullYear()}-${pad(ist.getMonth() + 1)}-${pad(ist.getDate())}`;
+    const time = `${pad(ist.getHours())}:${pad(ist.getMinutes())}`;
+    return { date, time };
+  };
+  const [alertDate, setAlertDate] = useState(() => nowIST().date);
+  const [alertTime, setAlertTime] = useState(() => nowIST().time);
+
   const [incidentStatus, setIncidentStatus] = useState("");
   const [adhocTask, setAdhocTask]           = useState("");
   const [showSummary, setShowSummary]       = useState(false);
@@ -123,6 +135,25 @@ function App() {
   const [handoversSeen,     setHandoversSeen]     = useState(() => {
     try { return parseInt(localStorage.getItem("handoversSeen") || "0", 10); } catch { return 0; }
   });
+
+  // ── Toast notifications ────────────────────────────────────────────────────
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
+
+  const showToast = (message, type = "success") => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, message, type, exiting: false }]);
+    setTimeout(() => {
+      setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 240);
+    }, 3200);
+  };
+
+  // ── End shift confirmation ────────────────────────────────────────────────
+  const [showEndShiftConfirm, setShowEndShiftConfirm] = useState(false);
+
+  // ── Triage debounce ──────────────────────────────────────────────────────
+  const triageUpdating = useRef(false);
 
   const fetchHandovers = async () => {
     setHandoversLoading(true);
@@ -211,13 +242,21 @@ function App() {
 
   const updateTriage = async (change) => {
     if (triagedCount <= 0 && change < 0) return;
-    const res  = await fetch(`${API}/update-triage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, change }),
-    });
-    const data = await res.json();
-    setTriagedCount(data.triaged_count);
+    if (triageUpdating.current) return;
+    triageUpdating.current = true;
+    try {
+      const res  = await fetch(`${API}/update-triage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift_id: shiftId, change }),
+      });
+      const data = await res.json();
+      setTriagedCount(data.triaged_count);
+    } catch {
+      showToast("Failed to update triage count", "error");
+    } finally {
+      triageUpdating.current = false;
+    }
   };
 
   const handleAddTickets = () => {
@@ -232,107 +271,153 @@ function App() {
 
   const saveTicketsToBackend = async () => {
     if (tickets.length === 0) return;
-    await fetch(`${API}/add-tickets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, tickets }),
-    });
-    alert("Tickets saved successfully");
-    setTickets([]);
+    try {
+      const res = await fetch(`${API}/add-tickets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift_id: shiftId, tickets }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast(`${tickets.length} ticket(s) saved successfully`);
+      setTickets([]);
+    } catch {
+      showToast("Failed to save tickets", "error");
+    }
   };
 
   const handleAddAlert = async () => {
     if (!selectedMonitor || !selectedAlert) {
-      alert("Please select monitor and alert type");
+      showToast("Please select monitor and alert type", "warning");
       return;
     }
-    await fetch(`${API}/add-alert`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift_id: shiftId,
-        monitor: selectedMonitor,
-        alert_type: selectedAlert,
-        comment: alertComment,
-      }),
-    });
-    alert("Alert logged successfully");
-    setSelectedMonitor("");
-    setSelectedAlert("");
-    setAlertComment("");
+    if (!alertDate || !alertTime) {
+      showToast("Please set the alert date and time", "warning");
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/add-alert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shift_id:   shiftId,
+          monitor:    selectedMonitor,
+          alert_type: selectedAlert,
+          comment:    alertComment,
+          alert_date: alertDate,
+          alert_time: alertTime,
+          alert_datetime: `${alertDate}T${alertTime}:00`,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Alert logged successfully");
+      setSelectedMonitor("");
+      setSelectedAlert("");
+      setAlertComment("");
+      const fresh = nowIST();
+      setAlertDate(fresh.date);
+      setAlertTime(fresh.time);
+    } catch {
+      showToast("Failed to log alert", "error");
+    }
   };
 
   const handleSaveIncidentStatus = async () => {
     if (!incidentStatus.trim()) {
-      alert("Please enter incident/status information");
+      showToast("Please enter incident/status information", "warning");
       return;
     }
-    await fetch(`${API}/add-incident`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, description: incidentStatus }),
-    });
-    alert("Incident/Status saved successfully");
-    setIncidentStatus("");
+    try {
+      const res = await fetch(`${API}/add-incident`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift_id: shiftId, description: incidentStatus }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Incident report saved");
+      setIncidentStatus("");
+    } catch {
+      showToast("Failed to save incident report", "error");
+    }
   };
 
   const handleSaveAdhocTask = async () => {
     if (!adhocTask.trim()) {
-      alert("Please enter ad-hoc task information");
+      showToast("Please enter ad-hoc task information", "warning");
       return;
     }
-    await fetch(`${API}/add-adhoc`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, task: adhocTask }),
-    });
-    alert("Ad-hoc task saved successfully");
-    setAdhocTask("");
+    try {
+      const res = await fetch(`${API}/add-adhoc`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift_id: shiftId, task: adhocTask }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Ad-hoc task saved");
+      setAdhocTask("");
+    } catch {
+      showToast("Failed to save ad-hoc task", "error");
+    }
   };
 
   const handleSaveHandover = async () => {
     if (!handoverDescription.trim() || !handoverTo.trim()) {
-      alert("Please enter both handover description and recipient");
+      showToast("Please enter both handover description and recipient", "warning");
       return;
     }
-    await fetch(`${API}/add-handover`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift_id: shiftId,
-        description: handoverDescription,
-        handover_to: handoverTo,
-      }),
-    });
-    alert("Shift handover saved successfully");
-    setHandoverDescription("");
-    setHandoverTo("");
+    try {
+      const res = await fetch(`${API}/add-handover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shift_id: shiftId,
+          description: handoverDescription,
+          handover_to: handoverTo,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Shift handover saved");
+      setHandoverDescription("");
+      setHandoverTo("");
+    } catch {
+      showToast("Failed to save handover", "error");
+    }
   };
 
   const handleSaveMaintenance = async () => {
     if (!maintenanceLog.trim()) {
-      alert("Please enter maintenance information");
+      showToast("Please enter maintenance information", "warning");
       return;
     }
-    await fetch(`${API}/add-maintenance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, description: maintenanceLog }),
-    });
-    alert("Maintenance log saved successfully");
-    setMaintenanceLog("");
+    try {
+      const res = await fetch(`${API}/add-maintenance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift_id: shiftId, description: maintenanceLog }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Maintenance log saved");
+      setMaintenanceLog("");
+    } catch {
+      showToast("Failed to save maintenance log", "error");
+    }
   };
 
   const handleEndShift = async () => {
-    await fetch(`${API}/end-shift`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId }),
-    });
-    const res     = await fetch(`${API}/shift-summary/${shiftId}`);
-    const summary = await res.json();
-    setSummaryData(summary);
-    setShowSummary(true);
+    try {
+      const endRes = await fetch(`${API}/end-shift`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift_id: shiftId }),
+      });
+      if (!endRes.ok) throw new Error(`HTTP ${endRes.status}`);
+      const res     = await fetch(`${API}/shift-summary/${shiftId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const summary = await res.json();
+      setSummaryData(summary);
+      setShowSummary(true);
+    } catch (e) {
+      showToast(`Failed to end shift: ${e.message}`, "error");
+    }
   };
 
   const handleCloseSummary = () => {
@@ -387,7 +472,43 @@ function App() {
   return (
     <div style={styles.container}>
 
-      {/* ── Notification panel animation ── */}
+      {/* ── Toast container ── */}
+      <div className="ag-toast-container">
+        {toasts.map(t => {
+          const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
+          return (
+            <div key={t.id} className={`ag-toast ag-toast-${t.type}${t.exiting ? " ag-toast-exit" : ""}`}>
+              <span style={{ fontWeight: 700, flexShrink: 0 }}>{icons[t.type] || "ℹ"}</span>
+              <span>{t.message}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── End Shift Confirm ── */}
+      {showEndShiftConfirm && (
+        <div className="ag-confirm-overlay" onClick={() => setShowEndShiftConfirm(false)}>
+          <div className="ag-confirm-box" onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🔚</div>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: C.ink, margin: "0 0 8px" }}>End Shift?</h3>
+            <p style={{ fontSize: 13, color: C.inkMid, margin: "0 0 24px", lineHeight: 1.6 }}>
+              This will close your current shift and generate a summary. Make sure all activities are saved.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="ag-btn-cancel" onClick={() => setShowEndShiftConfirm(false)}>
+                Cancel
+              </button>
+              <button
+                className="ag-btn-confirm"
+                style={{ background: "linear-gradient(135deg,#dc2626,#b91c1c)" }}
+                onClick={() => { setShowEndShiftConfirm(false); handleEndShift(); }}
+              >
+                End Shift
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes ag-rise { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
         @keyframes ag-bell-shake {
@@ -401,55 +522,109 @@ function App() {
         .ag-notif-bell { animation: ag-bell-shake 1.4s ease 0.3s 2; transform-origin: top center; }
       `}</style>
 
-      {/* ── Notification bell ── */}
-      <button
-        className="ag-notif-btn"
-        onClick={openNotifications}
-        title="Shift Handovers"
-        style={{
-          position:"fixed", top:6, right:188, zIndex:900,
-          width:52, height:52, borderRadius:"50%",
-          background: showNotifications ? "rgba(37,99,235,0.25)" : "rgba(255,255,255,0.12)",
-          border: showNotifications ? "1.5px solid rgba(37,99,235,0.8)" : "1.5px solid rgba(255,255,255,0.25)",
-          cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-          transition:"all .18s", backdropFilter:"blur(8px)",
-          boxShadow: unseenCount > 0 ? "0 0 0 3px rgba(239,68,68,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
-        }}
-      >
-        {/* Bell icon — filled style */}
-        <svg
-          className={unseenCount > 0 ? "ag-notif-bell" : ""}
-          width="26" height="26" viewBox="0 0 24 24"
-          fill={showNotifications ? "#3b82f6" : "#e6edf3"}
-          style={{ display:"block" }}
+      {/* ── Top-right action bar: Bell + Manager toggle ── */}
+      <div style={{
+        position: "fixed", top: 10, right: 16, zIndex: 9999,
+        display: "flex", alignItems: "center", gap: "4px",
+        background: "#1c2230",
+        border: "1px solid #3d444d",
+        borderRadius: "10px",
+        padding: "4px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+      }}>
+
+        {/* Bell */}
+        <button
+          onClick={openNotifications}
+          title="Shift Handovers"
+          className="ag-action-btn"
+          style={{
+            position: "relative",
+            boxSizing: "border-box",
+            width: "36px", height: "36px", borderRadius: "7px",
+            background: showNotifications ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.07)",
+            border: showNotifications ? "1px solid rgba(59,130,246,0.6)" : "1px solid rgba(255,255,255,0.12)",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.15s, border-color 0.15s",
+            flexShrink: 0,
+          }}
         >
-          <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 0 0-5-5.92V4a1 1 0 0 0-2 0v1.08A6 6 0 0 0 6 11v5l-2 2v1h16v-1l-2-2z"/>
-        </svg>
-        {unseenCount > 0 && (
-          <span style={{
-            position:"absolute", top:0, right:0,
-            background:"#ef4444", color:"#fff",
-            borderRadius:"50%", minWidth:18, height:18,
-            fontSize:10, fontWeight:800,
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontFamily:"'Inter',sans-serif", lineHeight:1,
-            border:"2px solid #0d1117", padding:"0 3px",
-            boxSizing:"border-box",
-          }}>{unseenCount > 9 ? "9+" : unseenCount}</span>
-        )}
-      </button>
+          <svg width="16" height="16" viewBox="0 0 24 24"
+            fill="none"
+            stroke={showNotifications ? "#60a5fa" : "#c9d1d9"}
+            strokeWidth="2.5"
+            strokeLinecap="round" strokeLinejoin="round"
+            style={{ display: "block", flexShrink: 0 }}
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          {unseenCount > 0 && (
+            <span style={{
+              position: "absolute", top: "5px", right: "5px",
+              width: "7px", height: "7px",
+              background: "#ef4444",
+              borderRadius: "50%",
+              border: "1.5px solid #1c2230",
+              display: "block",
+            }} />
+          )}
+        </button>
+
+        {/* Divider */}
+        <div style={{ width: "1px", height: "18px", background: "#3d444d", flexShrink: 0 }} />
+
+        {/* Manager toggle */}
+        <button
+          onClick={handleManagerToggle}
+          title={showManager ? "Switch to Agent View" : "Switch to Manager View"}
+          className="ag-action-btn"
+          style={{
+            boxSizing: "border-box",
+            width: "36px", height: "36px", borderRadius: "7px",
+            background: showManager ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)",
+            border: showManager ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.15s, border-color 0.15s",
+            flexShrink: 0,
+          }}
+        >
+          {showManager ? (
+            <svg width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="#a5b4fc" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{ display: "block", flexShrink: 0 }}
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="#c9d1d9" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{ display: "block", flexShrink: 0 }}
+            >
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+            </svg>
+          )}
+        </button>
+
+      </div>
 
       {/* ── Notification panel ── */}
       {showNotifications && (
         <div onClick={() => setShowNotifications(false)}
-          style={{ position:"fixed", inset:0, zIndex:800 }} />
+          style={{ position:"fixed", inset:0, zIndex:9997 }} />
       )}
       {showNotifications && (
         <div style={{
-          position:"fixed", top:60, right:14, zIndex:900,
-          width:480, maxHeight:640,
+          position:"fixed", top:58, right:16, zIndex:9998,
+          width:440, maxHeight:600,
           background:"#161b22", border:"1px solid #30363d",
-          borderRadius:14, boxShadow:"0 20px 60px rgba(0,0,0,0.8)",
+          borderRadius:12, boxShadow:"0 16px 48px rgba(0,0,0,0.8)",
           display:"flex", flexDirection:"column",
           fontFamily:"'Inter',sans-serif",
           animation:"ag-rise .18s ease",
@@ -544,16 +719,7 @@ function App() {
         </div>
       )}
 
-      {/* ── Manager toggle ── */}
-      <button
-        className="ag-mgr-toggle"
-        onClick={handleManagerToggle}
-        title={showManager ? "Agent View" : "Manager View"}
-      >
-        {showManager ? "👤" : "⚙️"}
-      </button>
-
-      {/* ── Password Modal ── */}
+      {/* ── Notification panel backdrop ── */}
       {showPasswordModal && (
         <div
           style={{
@@ -612,7 +778,7 @@ function App() {
               placeholder="Enter password…"
               value={managerPassword}
               onChange={(e) => setManagerPassword(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handlePasswordSubmit()}
+              onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
               autoFocus
               style={{
                 width: "100%",
@@ -841,6 +1007,9 @@ function App() {
       ) : showSummary ? (
         <div style={styles.summaryWrapper}>
           <div style={styles.summaryContainer}>
+            {!summaryData ? (
+              <div style={{ textAlign: "center", padding: "80px", color: C.inkMid }}>Loading summary…</div>
+            ) : (<>
 
             {/* Summary header */}
             <div style={styles.summaryHeader}>
@@ -861,7 +1030,7 @@ function App() {
                   { label: "Maintenance",value: summaryData.maintenance_count},
                 ].map(({ label, value }) => (
                   <div key={label} style={styles.statCard}>
-                    <div style={styles.statValue}>{value}</div>
+                    <div style={styles.statValue}>{value ?? 0}</div>
                     <div style={styles.statLabel}>{label}</div>
                   </div>
                 ))}
@@ -1036,6 +1205,7 @@ function App() {
                 Start New Shift
               </button>
             </div>
+            </>)}
           </div>
         </div>
 
@@ -1164,6 +1334,44 @@ function App() {
                   </svg>
                 </div>
                 <div style={styles.cardBody}>
+
+                  {/* Date + Time row */}
+                  <label style={styles.label}>Alert Date &amp; Time</label>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                        stroke={C.inkMid} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                      </svg>
+                      <input
+                        type="date"
+                        value={alertDate}
+                        onChange={(e) => setAlertDate(e.target.value)}
+                        className="ag-input"
+                        style={{ paddingLeft: "32px", colorScheme: "dark" }}
+                      />
+                    </div>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                        stroke={C.inkMid} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      <input
+                        type="time"
+                        value={alertTime}
+                        onChange={(e) => setAlertTime(e.target.value)}
+                        className="ag-input"
+                        style={{ paddingLeft: "32px", colorScheme: "dark" }}
+                      />
+                    </div>
+                  </div>
+
                   <label style={styles.label}>Monitor Type</label>
                   <select
                     value={selectedMonitor}
@@ -1277,7 +1485,6 @@ function App() {
                     value={handoverTo}
                     onChange={(e) => setHandoverTo(e.target.value)}
                     className="ag-input"
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: `1px solid ${C.border}`, fontSize: "13px", fontFamily: "'Inter',sans-serif", backgroundColor: C.canvas, color: C.ink, outline: "none", transition: "border-color .15s", boxSizing: "border-box" }}
                   />
                   <button className="ag-btn-primary" onClick={handleSaveHandover}>
                     Save Handover
@@ -1312,7 +1519,7 @@ function App() {
 
             {/* ── Footer ── */}
             <div style={styles.actionsFooter}>
-              <button className="ag-btn-end" onClick={handleEndShift}>
+              <button className="ag-btn-end" onClick={() => setShowEndShiftConfirm(true)}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                   <polyline points="16 17 21 12 16 7"/>

@@ -21,6 +21,9 @@ export const C = {
   amberText:    "#d29922",
   amberFaint:   "rgba(158,106,3,0.15)",
   amberBorder:  "rgba(158,106,3,0.3)",
+  indigo:       "#6366f1",
+  indigoFaint:  "rgba(99,102,241,0.12)",
+  indigoBorder: "rgba(99,102,241,0.3)",
   purple:       "#a78bfa",
   purpleFaint:  "rgba(167,139,250,0.15)",
   purpleBorder: "rgba(167,139,250,0.3)",
@@ -35,6 +38,26 @@ export const GLOBAL_CSS = `
   @keyframes agent-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
 
   *, *::before, *::after { box-sizing: border-box; }
+
+  /* ── Action bar buttons (guaranteed visible) ── */
+  .ag-action-btn {
+    all: unset;
+    box-sizing: border-box !important;
+    position: relative;
+    width: 36px !important; height: 36px !important;
+    border-radius: 7px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .ag-action-btn svg {
+    display: block !important;
+    flex-shrink: 0;
+    overflow: visible;
+  }
 
   /* ── Card ── */
   .ag-card {
@@ -143,6 +166,23 @@ export const GLOBAL_CSS = `
   .ag-input:focus { border-color: ${C.accentLight}; }
   .ag-input::placeholder { color: ${C.inkLight}; }
 
+  /* date/time picker dark chrome */
+  input[type="date"].ag-input,
+  input[type="time"].ag-input {
+    color-scheme: dark;
+    resize: none;
+  }
+  input[type="date"].ag-input::-webkit-calendar-picker-indicator,
+  input[type="time"].ag-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+    opacity: 0.6;
+  }
+  input[type="date"].ag-input::-webkit-calendar-picker-indicator:hover,
+  input[type="time"].ag-input::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
   /* ── Card header ── */
   .ag-card-header {
     padding: 16px 20px;
@@ -193,17 +233,46 @@ export const GLOBAL_CSS = `
   }
   .ag-counter-btn:hover { border-color: ${C.accentLight}; color: ${C.accentLight}; }
 
-  /* ── Manager toggle button ── */
-  .ag-mgr-toggle {
-    position: fixed; top: 7px; right: 120px; z-index: 9999;
-    padding: 8px 12px;
-    background: ${C.raised}; border: 1px solid ${C.border};
-    border-radius: 6px; color: ${C.accentLight};
-    font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600;
-    cursor: pointer; transition: all .15s;
-    display: flex; align-items: center; justify-content: center;
+  /* ── Toast notifications ── */
+  .ag-toast-container {
+    position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
   }
-  .ag-mgr-toggle:hover { border-color: ${C.accentLight}; background: ${C.bgAlt}; }
+  .ag-toast {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: 1px solid;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+    min-width: 280px; max-width: 420px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    animation: ag-toast-in .22s ease;
+    pointer-events: all;
+  }
+  .ag-toast-exit { animation: ag-toast-out .22s ease forwards; }
+  .ag-toast-success { background: ${C.greenFaint}; border-color: ${C.greenBorder}; color: ${C.greenText}; }
+  .ag-toast-error   { background: ${C.redFaint};   border-color: ${C.redBorder};   color: ${C.redText};   }
+  .ag-toast-info    { background: rgba(37,99,235,0.12); border-color: rgba(37,99,235,0.3); color: ${C.accentLight}; }
+  .ag-toast-warning { background: ${C.amberFaint}; border-color: ${C.amberBorder}; color: ${C.amberText}; }
+  @keyframes ag-toast-in  { from { opacity:0; transform:translateX(32px); } to { opacity:1; transform:none; } }
+  @keyframes ag-toast-out { from { opacity:1; transform:none; } to { opacity:0; transform:translateX(32px); } }
+
+  /* ── Confirm dialog ── */
+  .ag-confirm-overlay {
+    position: fixed; inset:0;
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10000;
+  }
+  .ag-confirm-box {
+    background: ${C.surface}; border: 1px solid ${C.border};
+    border-radius: 14px; padding: 36px 32px;
+    max-width: 380px; width: 90%;
+    box-shadow: 0 24px 56px rgba(0,0,0,0.7);
+    text-align: center;
+    animation: agent-rise .2s ease;
+  }
 `;
 
 // ── Inline JS style objects ───────────────────────────────────────────────────
@@ -355,6 +424,7 @@ export const styles = {
     backgroundColor: C.surface,
     borderBottom: `1px solid ${C.border}`,
     padding: "16px 32px",
+    paddingRight: "120px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -674,4 +744,4 @@ export const styles = {
     gap: "14px",
     marginTop: "28px",
   },
-};
+};  

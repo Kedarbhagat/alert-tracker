@@ -255,11 +255,23 @@ def add_alert():
         if not data:
             return jsonify({"error": "No data provided"}), 400
             
-        shift_id = data.get("shift_id")
-        monitor = data.get("monitor")
+        shift_id   = data.get("shift_id")
+        monitor    = data.get("monitor")
         alert_type = data.get("alert_type")
-        comment = data.get("comment", "")
-        
+        comment    = data.get("comment", "")
+
+        # Use the user-selected datetime if provided, otherwise fall back to now (IST)
+        alert_datetime_str = data.get("alert_datetime")  # e.g. "2026-02-24T19:20:00"
+        if alert_datetime_str:
+            try:
+                # Parse the naive datetime string and treat it as IST
+                naive_dt = datetime.strptime(alert_datetime_str, "%Y-%m-%dT%H:%M:%S")
+                created_at = IST.localize(naive_dt)
+            except (ValueError, TypeError):
+                created_at = datetime.now(IST)
+        else:
+            created_at = datetime.now(IST)
+
         if not all([shift_id, monitor, alert_type]):
             return jsonify({"error": "shift_id, monitor, and alert_type are required"}), 400
             
@@ -269,9 +281,9 @@ def add_alert():
             
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO alerts (shift_id, monitor, alert_type, comment)
-            VALUES (%s, %s, %s, %s);
-        """, (shift_id, monitor, alert_type, comment))
+            INSERT INTO alerts (shift_id, monitor, alert_type, comment, created_at)
+            VALUES (%s, %s, %s, %s, %s);
+        """, (shift_id, monitor, alert_type, comment, created_at))
         conn.commit()
         cur.close()
         return jsonify({"message": "Alert added successfully"})
