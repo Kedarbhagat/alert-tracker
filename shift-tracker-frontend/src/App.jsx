@@ -11,20 +11,51 @@ function App() {
 
   const monitorOptions = [
     "#CC_ONE_MONITORING",
-    "#CC_CARRIER_DISPATCH",
-    "#CC_CARRIER_RATING",
-    "#CC_WATCH_OCEAN",
+    "#CC-YMS-MONITORING",
+    "#CC-CARRIER-RATING-ALERTS-KRUNAL",
+    "#CC-CARRIER-DISPATCH-ALERT-KRUNAL-NEW", 
+    "#CC-WATCH-OCEAN",
+    "CC-GRAINGER-CARRIER-WISE-DISPATCH-ALERTS",
+    "#CC-THD-MONITORING",
+    "#CC-WWEX-CARRIER-WISE-DISPATCH-ALERTS",
+    "#CC-ABERCROMBIE-MONITORING",
+   
+    "#CC_WEATHERFORD_ELITE_MONITORING"
+,
+    "#CC-WATCH-ALL-SERVICES-DOWN ",
+    "MONITORING-YMS" ,
+    "#CC-WATCH-STARBUCKS-OBSERVE",
     "Gringer Metric",
     "THD Monitoring",
     "YMS & CC Farming",
+    
   ];
 
-  const alertOptions = [
-    "Server Down",
-    "Network Delay",
-    "API Failure",
-    "Database Issue",
-  ];
+  const alertOptionsByMonitor = {
+    "#CC_ONE_MONITORING": [
+  
+      "CAS Internal Server Errors",  //done
+      "[Portal v2 Service] - VOC/Movement may be Impacted" , //done
+      "0 - Shipment Creation" ,  //done
+      "Error: [NA - POV Manager] No/few logs in last 5 minutes triggered", //done
+      "[No Data from Correos] - Impacts Alcon Customer" ,//done
+      "LTL Tracking Service - 5xx]", //done 
+      "Freighthub Errors - Impacting LTL and TL Services" , //done
+      "[LTL Tracking Service - 5xx] - LTL Tracking Impacted" , //done
+      "[User Service] - User login (mostly SSO) Impacted" ,//done
+
+
+      "Zero Consumption for Ocean Insights",
+      "p44-Camelot Push Monitoring",
+      "Freighthub Errors \u2013 Lifecycle Public",
+      "VOC Movement Error",
+      "LTL Tracking Error \u2013 Lifecycle Page",
+      "Push Processing Queue Size \u2013 WWEX",
+    ],
+    default: [
+     
+    ],
+  };
 
   const API = "http://192.168.74.152:5000";
 
@@ -70,6 +101,9 @@ function App() {
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
+
+  // Computed alert options — depends on selectedMonitor state above
+  const alertOptions = alertOptionsByMonitor[selectedMonitor] ?? alertOptionsByMonitor["default"];
   const [alertComment, setAlertComment]       = useState("");
 
   const [incidentStatus, setIncidentStatus] = useState("");
@@ -1133,7 +1167,7 @@ function App() {
                   <label style={styles.label}>Monitor Type</label>
                   <select
                     value={selectedMonitor}
-                    onChange={(e) => setSelectedMonitor(e.target.value)}
+                    onChange={(e) => { setSelectedMonitor(e.target.value); setSelectedAlert(""); }}
                     className="ag-input"
                   >
                     <option value="">Select monitor…</option>
