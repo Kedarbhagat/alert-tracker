@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AdvancedAnalytics from "./Advancedanalyticis";
 import UserManagement from "./Usermanagement";
+import AgentMonitorIntelligence from "./Agentmonitorintelligence";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    MANAGER DASHBOARD
@@ -803,11 +804,12 @@ function ManagerDashboard() {
 
   /* ── Tab config ── */
   const TABS = [
-    { id: "overview",  label: "Overview"            },
-    { id: "active",    label: `Active Agents${activeAgents.length > 0 ? ` (${activeAgents.length})` : ""}` },
-    { id: "shifts",    label: "All Shifts"           },
-    { id: "analytics", label: "Advanced Analytics"  },
-    { id: "users",     label: "Manage Users"         },
+    { id: "overview",       label: "Overview"                  },
+    { id: "active",         label: `Active Agents${activeAgents.length > 0 ? ` (${activeAgents.length})` : ""}` },
+    { id: "shifts",         label: "All Shifts"                },
+    { id: "analytics",      label: "Advanced Analytics"        },
+    { id: "intelligence",   label: "Agent · Monitor · Intel"   },
+    { id: "users",          label: "Manage Users"              },
   ];
 
   /* ── Render ── */
@@ -877,7 +879,7 @@ function ManagerDashboard() {
 
       {/* ════════════════════════════════ CONTENT ════ */}
       <div style={
-        activeView === "analytics"
+        (activeView === "analytics" || activeView === "intelligence")
           ? { padding: 0 }
           : { padding: "28px 32px", maxWidth: 1400, margin: "0 auto" }
       }>
@@ -1128,6 +1130,11 @@ function ManagerDashboard() {
             onRefresh={fetchAdvancedAnalytics}
             api={API}
           />
+        )}
+
+        {/* ════ AGENT · MONITOR · INTELLIGENCE ════ */}
+        {activeView === "intelligence" && (
+          <AgentMonitorIntelligence api={API} />
         )}
 
         {/* ════ USER MANAGEMENT ════ */}

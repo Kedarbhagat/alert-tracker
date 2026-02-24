@@ -47,10 +47,9 @@ function App() {
 
       "Zero Consumption for Ocean Insights",
       "p44-Camelot Push Monitoring",
-      "Freighthub Errors \u2013 Lifecycle Public",
+     
       "VOC Movement Error",
-      "LTL Tracking Error \u2013 Lifecycle Page",
-      "Push Processing Queue Size \u2013 WWEX",
+     
     ],
     default: [
      
