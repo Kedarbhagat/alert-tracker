@@ -120,7 +120,7 @@ function App() {
     ],
   };
 
-  const API = "http://192.168.74.152:5000";
+  const API = "https://alerttracker-ayfwbgbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
   // ── Inject global CSS once ──────────────────────────────────────────────────
   useEffect(() => {
