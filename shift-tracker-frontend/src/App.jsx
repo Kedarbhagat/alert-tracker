@@ -120,7 +120,7 @@ function App() {
     ],
   };
 
-  const API = "https://alerttracker-ayfwbgbcbvbmh4g3.westeurope-01.azurewebsites.net";
+  const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
   // ── Inject global CSS once ──────────────────────────────────────────────────
   useEffect(() => {

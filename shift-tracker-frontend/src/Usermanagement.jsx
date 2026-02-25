@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from "react";
  *   api  — base URL string, e.g. "http://192.168.74.152:5000"
  */
 function UserManagement({ api }) {
-  const API = api || "https://alerttracker-ayfwbgbcbvbmh4g3.westeurope-01.azurewebsites.net";
+  const API = api || "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
 
   /* ─── state ─────────────────────────────────────────────────────────────── */

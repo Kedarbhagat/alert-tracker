@@ -630,7 +630,7 @@ const DURATION_OPTIONS = [
 function toISODate(d) { return d.toISOString().slice(0, 10); }
 
 /* ═══════════════════════════════════════════════ MAIN ══ */
-export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "https://alerttracker-ayfwbgbcbvbmh4g3.westeurope-01.azurewebsites.net"
+export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net"
 }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);

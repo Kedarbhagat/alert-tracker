@@ -607,7 +607,7 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
 ══════════════════════════════════════════════════════════════════════════ */
 
 function ManagerDashboard() {
-  const API = "https://alerttracker-ayfwbgbcbvbmh4g3.westeurope-01.azurewebsites.net";
+  const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
   /* ── State ── */
   const [activeView,        setActiveView]        = useState("overview");
