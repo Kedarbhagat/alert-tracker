@@ -11,19 +11,19 @@ function App() {
 
   const monitorOptions = [
     "#CC_ONE_MONITORING", //done
-    "#CC-YMS-MONITORING",
+    "#CC-YMS-MONITORING",//done
     "#CC-CARRIER-RATING-ALERTS-KRUNAL",
-    "#CC-CARRIER-DISPATCH-ALERT-KRUNAL-NEW", 
-    "#CC-WATCH-OCEAN",
+    "#CC-CARRIER-DISPATCH-ALERT-KRUNAL-NEW", //done
+    "#CC-WATCH-OCEAN",   //done
     "CC-GRAINGER-CARRIER-WISE-DISPATCH-ALERTS",
-    "#CC-THD-MONITORING",
+    "#CC-THD-MONITORING", //done
     "#CC-WWEX-CARRIER-WISE-DISPATCH-ALERTS",
-    "#CC-ABERCROMBIE-MONITORING",
-    "#GRAINGER-CREATION-VOLUME-ALERT" , 
+    "#CC-ABERCROMBIE-MONITORING", //done
+    "#GRAINGER-CREATION-VOLUME-ALERT" , //done
     "#CC_WEATHERFORD_ELITE_MONITORING"//done
 ,
-    "#CC-WATCH-ALL-SERVICES-DOWN ",
-    "MONITORING-YMS" ,
+    "#CC-WATCH-ALL-SERVICES-DOWN ",//done
+    
     "#CC-WATCH-STARBUCKS-OBSERVE",
     "Gringer Metric",
     "THD Monitoring",
@@ -51,6 +51,70 @@ function App() {
       "VOC Movement Error",
      
     ],
+    "#CC-YMS-MONITORING":[
+      "Starbucks YMS Outbound Consumer Reprocessor Errors" , 
+      "Starbucks YMS Outbound Consumer Errors" , 
+      "Starbucks YMS Inbound Consumer Errors (Connection)" ,
+      "Starbucks YMS Inbound Consumer Reprocessor Errors (Ambiguous - Needs Investigation" ,
+      "Starbucks Slot Booking UI - 5xx Errors" , 
+      "Starbucks YMS Inbound Consumer Errors" , 
+      "IFCO YMS Outbound Consumer Reprocessor Errors"
+
+    ] ,  
+    "#CC_WEATHERFORD_ELITE_MONITORING":[
+      "Weatherford OTM Shipment Creation Failures triggered" ,
+    ],
+    "#CC-CARRIER-RATING-ALERTS-KRUNAL":[
+         
+
+    ],
+    "#CC-CARRIER-DISPATCH-ALERT-KRUNAL-NEW":[
+      "30 min Focused Dispatch Alert" , 
+      "60-Min Focused Dispatch Alert" , 
+
+    ] ,
+    "CC-GRAINGER-CARRIER-WISE-DISPATCH-ALERTS":[
+        
+    ] , 
+    "#CC-WATCH-OCEAN":[
+      "Ocean Carrier Metrics –  Update 1",
+      "Ocean Carrier Metrics –  Update 2",
+      "Ocean Carrier Metrics –  Update 3",
+      "Ocean Carrier Metrics –  Update 4",
+      "Ocean Carrier Metrics –  Update 5",
+      "Ocean Carrier Metrics –  Update 6",
+      "Ocean Carrier Metrics –  Update 7"
+    ] ,
+    "#GRAINGER-CREATION-VOLUME-ALERT" :[
+      "Grainger: Yesterday's Total Shipment Count" , 
+      "Grainger: Yesterday's eBOL Shipments Count" , 
+      
+    ] , 
+
+    "#CC-ABERCROMBIE-MONITORING": [
+    "[Sisense SQL Alert] AnF: USPS Untrackable",
+    "[Sisense SQL Alert] AnF: DHL Paket Untrackable",
+    "[Sisense SQL Alert] AnF: Colissimo Untrackable",
+    "[Sisense SQL Alert] AnF: Royal Mail Untrackable",
+    "[Sisense SQL Alert] AnF: UPS Untrackable",
+    "[Sisense SQL Alert] AnF: International Bridge Creation",
+    "[Sisense SQL Alert] AnF: Ontrac-LaserShip Creation" , 
+    "other"
+],  
+     "#CC-THD-MONITORING":[
+      "THD - Dashboard Screenshot Reminder {Link}" , 
+      "LastMile THD Shipment - other alerts" , 
+     ],
+
+     "#CC-WATCH-ALL-SERVICES-DOWN ":[
+      "[Sisense SQL Alert] Farmer's Dog - Tracking Alert"
+     ] , 
+     
+     "#CC-WATCH-STARBUCKS-OBSERVE":[
+           
+     ] , 
+
+
     default: [
      
     ],
