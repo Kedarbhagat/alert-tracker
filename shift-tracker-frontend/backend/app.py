@@ -43,6 +43,9 @@ def return_connection(conn):
     if conn:
         connection_pool.putconn(conn)
 
+# ✅ Initialize pool at module level so Gunicorn picks it up on import
+initialize_pool()
+
 def format_ist_datetime(dt):
     """Convert datetime to IST and return ISO format string"""
     if dt is None:
@@ -1772,12 +1775,8 @@ def delete_user(agent_id):
 
 
 if __name__ == "__main__":
-    initialize_pool()
-    if connection_pool:
-        print("🚀 Unified backend starting on port 5000...")
-        print("📊 Agent endpoints: /check-active-shift, /start-shift, etc.")
-        print("📈 Manager endpoints: /manager/active-agents, /manager/analytics, etc.")
-        print("👥 User mgmt endpoints: /manager/users (GET, POST), /manager/users/<id> (DELETE)")
-        app.run(debug=True, host="0.0.0.0", port=5000)
-    else:
-        print("❌ Failed to initialize connection pool")
+    print("🚀 Unified backend starting on port 5000...")
+    print("📊 Agent endpoints: /check-active-shift, /start-shift, etc.")
+    print("📈 Manager endpoints: /manager/active-agents, /manager/analytics, etc.")
+    print("👥 User mgmt endpoints: /manager/users (GET, POST), /manager/users/<id> (DELETE)")
+    app.run(debug=True, host="0.0.0.0", port=5000)
