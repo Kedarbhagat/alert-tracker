@@ -51,3 +51,4 @@ jobs:
           app-name: 'alerttracker'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AC607651FF7F465589D300C70B9D7A90 }}
+
