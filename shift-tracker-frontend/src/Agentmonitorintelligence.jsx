@@ -532,7 +532,7 @@ function ShiftMonitorModal({ shiftId, api, onClose }) {
    AGENT DETAIL PANEL
    KPIs + Alerts by Monitor (with timestamps) + Trends + Shift History
 ══════════════════════════════════════════════════════════════════════════ */
-function AgentDetailPanel({ agent, api, days, onBack }) {
+function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
   const [data, setData]               = useState(null);
   const [loading, setLoading]         = useState(true);
   const [err, setErr]                 = useState(null);
@@ -552,7 +552,7 @@ function AgentDetailPanel({ agent, api, days, onBack }) {
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setErr(e.message); setLoading(false); });
-  }, [agent.agent_id, api, days]);
+  }, [agent.agent_id, api, days, refreshKey]);
 
   // Fetch individual alert records (with timestamps) from each recent shift
   const loadRawAlerts = useCallback(async () => {
@@ -747,7 +747,7 @@ function AgentDetailPanel({ agent, api, days, onBack }) {
 /* ══════════════════════════════════════════════════════════════════════════
    MONITOR INTELLIGENCE VIEW  (cross-agent, aggregate)
 ══════════════════════════════════════════════════════════════════════════ */
-function MonitorIntelligenceView({ api, days }) {
+function MonitorIntelligenceView({ api, days, refreshKey = 0 }) {
   const [data, setData]             = useState(null);
   const [loading, setLoading]       = useState(true);
   const [err, setErr]               = useState(null);
@@ -760,7 +760,7 @@ function MonitorIntelligenceView({ api, days }) {
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setErr(e.message); setLoading(false); });
-  }, [api, days]);
+  }, [api, days, refreshKey]);
 
   const monitors = (data?.monitor_analysis || []).filter(m =>
     !search || m.monitor.toLowerCase().includes(search.toLowerCase())
@@ -849,6 +849,7 @@ export default function AgentMonitorIntelligence({ api }) {
   const [days, setDays]                   = useState(30);
   const [search, setSearch]               = useState("");
   const [sortBy, setSortBy]               = useState("total_triaged");
+  const [refreshKey, setRefreshKey]       = useState(0);
 
   const loadAgents = useCallback(() => {
     setAgLoading(true); setAgErr(null);
@@ -862,7 +863,6 @@ export default function AgentMonitorIntelligence({ api }) {
 
   const SORT_OPTS = [
     { value:"total_triaged",     label:"Cases Triaged"    },
-    { value:"productivity_rate", label:"Productivity Rate" },
     { value:"total_alerts",      label:"Alerts"           },
     { value:"total_tickets",     label:"Tickets"          },
     { value:"shift_count",       label:"Shift Count"      },
@@ -890,7 +890,7 @@ export default function AgentMonitorIntelligence({ api }) {
           ))}
         </div>
         <div style={{ padding:"24px 28px" }}>
-          <AgentDetailPanel agent={selectedAgent} api={api} days={days} onBack={() => { setView("agents"); setSelectedAgent(null); }} />
+          <AgentDetailPanel agent={selectedAgent} api={api} days={days} refreshKey={refreshKey} onBack={() => { setView("agents"); setSelectedAgent(null); }} />
         </div>
       </div>
     );
@@ -915,7 +915,7 @@ export default function AgentMonitorIntelligence({ api }) {
             <option value={60}>Last 60 days</option>
             <option value={90}>Last 90 days</option>
           </select>
-          <button className="ami-btn-ghost" onClick={loadAgents}>↻</button>
+          <button className="ami-btn-ghost" onClick={() => { loadAgents(); setRefreshKey(k => k + 1); }}>↻ Refresh</button>
         </div>
       </div>
 
@@ -950,7 +950,7 @@ export default function AgentMonitorIntelligence({ api }) {
                             <div style={{ fontFamily:"'Inter',sans-serif", fontSize:14, fontWeight:600, color:C.ink, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{agent.agent_name}</div>
                             <div style={{ fontFamily:"'Inter',sans-serif", fontSize:11, color:C.inkMid, marginTop:2 }}>#{agent.rank} · {agent.shift_count} shift{agent.shift_count!==1?"s":""}</div>
                           </div>
-                          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color, fontWeight:600 }}>{agent.productivity_rate}/hr</div>
+                
                         </div>
 
                         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
@@ -967,16 +967,6 @@ export default function AgentMonitorIntelligence({ api }) {
                           ))}
                         </div>
 
-                        <div style={{ marginBottom:14 }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                            <span style={{ fontFamily:"'Inter',sans-serif", fontSize:10, color:C.inkMid }}>Productivity</span>
-                            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color }}>{agent.productivity_rate} cases/hr</span>
-                          </div>
-                          <div style={{ height:4, background:C.borderLight, borderRadius:2, overflow:"hidden" }}>
-                            <div style={{ height:"100%", width:`${Math.min((agent.productivity_rate/Math.max(...filtered.map(a=>a.productivity_rate),1))*100,100)}%`, background:color, borderRadius:2, transition:"width .5s ease" }} />
-                          </div>
-                        </div>
-
                         <button className="ami-btn" style={{ width:"100%", fontSize:12 }} onClick={e => { e.stopPropagation(); setSelectedAgent(agent); setView("agent-detail"); }}>
                           Full Intelligence →
                         </button>
@@ -990,7 +980,7 @@ export default function AgentMonitorIntelligence({ api }) {
                 <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${C.border}` }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead className="ami-thead">
-                      <tr>{["Rank","Agent","Shifts","Triaged","Productivity","Alerts","Tickets","Incidents","Ad-hoc",""].map(h=><th key={h}>{h}</th>)}</tr>
+                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","Tickets","Incidents","Ad-hoc",""].map(h=><th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody className="ami-tbody">
                       {filtered.map((a, i) => {
@@ -1008,7 +998,6 @@ export default function AgentMonitorIntelligence({ api }) {
                             </td>
                             <td style={{ color:C.inkMid, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>{a.shift_count}</td>
                             <td style={{ fontWeight:600, color:C.greenText }}>{a.total_triaged}</td>
-                            <td style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color }}>{a.productivity_rate}/hr</td>
                             <td style={{ color:C.redText }}>{a.total_alerts}</td>
                             <td style={{ color:C.amberText }}>{a.total_tickets}</td>
                             <td style={{ color:C.purple }}>{a.total_incidents}</td>
@@ -1034,7 +1023,7 @@ export default function AgentMonitorIntelligence({ api }) {
         {/* MONITORS */}
         {view === "monitors" && (
           <div style={{ animation:"ami-rise .4s ease" }}>
-            <MonitorIntelligenceView api={api} days={days} />
+            <MonitorIntelligenceView api={api} days={days} refreshKey={refreshKey} />
           </div>
         )}
       </div>
