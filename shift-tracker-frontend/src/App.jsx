@@ -165,6 +165,7 @@ function App() {
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
+  const [customAlertText, setCustomAlertText] = useState("");
 
   // Computed alert options — depends on selectedMonitor state above
   const alertOptions = alertOptionsByMonitor[selectedMonitor] ?? alertOptionsByMonitor["default"];
@@ -375,10 +376,15 @@ function App() {
       showToast("Please select monitor and alert type", "warning");
       return;
     }
+    if (selectedAlert === "__other__" && !customAlertText.trim()) {
+      showToast("Please enter a custom alert type", "warning");
+      return;
+    }
     if (!alertDate || !alertTime) {
       showToast("Please set the alert date and time", "warning");
       return;
     }
+    const finalAlertType = selectedAlert === "__other__" ? customAlertText.trim() : selectedAlert;
     try {
       const res = await fetch(`${API}/add-alert`, {
         method: "POST",
@@ -386,7 +392,7 @@ function App() {
         body: JSON.stringify({
           shift_id:   shiftId,
           monitor:    selectedMonitor,
-          alert_type: selectedAlert,
+          alert_type: finalAlertType,
           comment:    alertComment,
           alert_date: alertDate,
           alert_time: alertTime,
@@ -397,6 +403,7 @@ function App() {
       showToast("Alert logged successfully");
       setSelectedMonitor("");
       setSelectedAlert("");
+      setCustomAlertText("");
       setAlertComment("");
       const fresh = nowIST();
       setAlertDate(fresh.date);
@@ -1465,7 +1472,7 @@ function App() {
                   <label style={styles.label}>Monitor Type</label>
                   <select
                     value={selectedMonitor}
-                    onChange={(e) => { setSelectedMonitor(e.target.value); setSelectedAlert(""); }}
+                    onChange={(e) => { setSelectedMonitor(e.target.value); setSelectedAlert(""); setCustomAlertText(""); }}
                     className="ag-input"
                   >
                     <option value="">Select monitor…</option>
@@ -1477,14 +1484,25 @@ function App() {
                   <label style={styles.label}>Alert Type</label>
                   <select
                     value={selectedAlert}
-                    onChange={(e) => setSelectedAlert(e.target.value)}
+                    onChange={(e) => { setSelectedAlert(e.target.value); setCustomAlertText(""); }}
                     className="ag-input"
                   >
                     <option value="">Select alert type…</option>
                     {alertOptions.map((a, i) => (
                       <option key={i} value={a}>{a}</option>
                     ))}
+                    <option value="__other__">Other (custom)</option>
                   </select>
+                  {selectedAlert === "__other__" && (
+                    <input
+                      type="text"
+                      placeholder="Enter custom alert type…"
+                      value={customAlertText}
+                      onChange={(e) => setCustomAlertText(e.target.value)}
+                      className="ag-input"
+                      style={{ marginTop: "8px" }}
+                    />
+                  )}
 
                   <label style={styles.label}>Alert Details</label>
                   <textarea
