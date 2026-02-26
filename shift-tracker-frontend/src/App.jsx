@@ -165,7 +165,6 @@ function App() {
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
-  const [customAlertText, setCustomAlertText] = useState("");
 
   // Computed alert options — depends on selectedMonitor state above
   const alertOptions = alertOptionsByMonitor[selectedMonitor] ?? alertOptionsByMonitor["default"];
@@ -376,15 +375,10 @@ function App() {
       showToast("Please select monitor and alert type", "warning");
       return;
     }
-    if (selectedAlert === "__other__" && !customAlertText.trim()) {
-      showToast("Please enter a custom alert type", "warning");
-      return;
-    }
     if (!alertDate || !alertTime) {
       showToast("Please set the alert date and time", "warning");
       return;
     }
-    const finalAlertType = selectedAlert === "__other__" ? customAlertText.trim() : selectedAlert;
     try {
       const res = await fetch(`${API}/add-alert`, {
         method: "POST",
@@ -392,7 +386,7 @@ function App() {
         body: JSON.stringify({
           shift_id:   shiftId,
           monitor:    selectedMonitor,
-          alert_type: finalAlertType,
+          alert_type: selectedAlert,
           comment:    alertComment,
           alert_date: alertDate,
           alert_time: alertTime,
@@ -403,7 +397,6 @@ function App() {
       showToast("Alert logged successfully");
       setSelectedMonitor("");
       setSelectedAlert("");
-      setCustomAlertText("");
       setAlertComment("");
       const fresh = nowIST();
       setAlertDate(fresh.date);
@@ -719,7 +712,7 @@ function App() {
       {showNotifications && (
         <div style={{
           position:"fixed", top:58, right:16, zIndex:9998,
-          width:440, maxHeight:600,
+          width:520, maxHeight:680,
           background:"#161b22", border:"1px solid #30363d",
           borderRadius:12, boxShadow:"0 16px 48px rgba(0,0,0,0.8)",
           display:"flex", flexDirection:"column",
@@ -804,11 +797,17 @@ function App() {
                 </div>
                 {/* Handover note */}
                 <div style={{
-                  fontSize:12, color:"#8b949e", lineHeight:1.5,
-                  background:"#0d1117", borderRadius:6, padding:"7px 10px",
+                  fontSize:12, color:"#8b949e", lineHeight:1.6,
+                  background:"#0d1117", borderRadius:6, padding:"10px 12px",
                   border:"1px solid #21262d", marginLeft:32,
+                  maxHeight:"260px", overflowY:"auto",
                 }}>
-                  {h.description}
+                  {(h.description || "").split("\n").filter(line => line.trim()).map((line, li) => (
+                    <div key={li} style={{ display:"flex", gap:7, alignItems:"flex-start", marginBottom:5 }}>
+                      <span style={{ color:"#3b82f6", fontSize:14, lineHeight:1.3, flexShrink:0 }}>•</span>
+                      <span style={{ flex:1, wordBreak:"break-word" }}>{line.trim()}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -1372,7 +1371,7 @@ function App() {
               {/* Ticket Management */}
               <div className="ag-card">
                 <div className="ag-card-header">
-                  <h3 style={styles.cardTitle}>Ticket Management</h3>
+                  <h3 style={styles.cardTitle}>Ticket Management - HIP</h3>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
@@ -1472,7 +1471,7 @@ function App() {
                   <label style={styles.label}>Monitor Type</label>
                   <select
                     value={selectedMonitor}
-                    onChange={(e) => { setSelectedMonitor(e.target.value); setSelectedAlert(""); setCustomAlertText(""); }}
+                    onChange={(e) => { setSelectedMonitor(e.target.value); setSelectedAlert(""); }}
                     className="ag-input"
                   >
                     <option value="">Select monitor…</option>
@@ -1484,25 +1483,14 @@ function App() {
                   <label style={styles.label}>Alert Type</label>
                   <select
                     value={selectedAlert}
-                    onChange={(e) => { setSelectedAlert(e.target.value); setCustomAlertText(""); }}
+                    onChange={(e) => setSelectedAlert(e.target.value)}
                     className="ag-input"
                   >
                     <option value="">Select alert type…</option>
                     {alertOptions.map((a, i) => (
                       <option key={i} value={a}>{a}</option>
                     ))}
-                    <option value="__other__">Other (custom)</option>
                   </select>
-                  {selectedAlert === "__other__" && (
-                    <input
-                      type="text"
-                      placeholder="Enter custom alert type…"
-                      value={customAlertText}
-                      onChange={(e) => setCustomAlertText(e.target.value)}
-                      className="ag-input"
-                      style={{ marginTop: "8px" }}
-                    />
-                  )}
 
                   <label style={styles.label}>Alert Details</label>
                   <textarea
