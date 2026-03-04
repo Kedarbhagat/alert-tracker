@@ -184,6 +184,8 @@ function App() {
 
   const [incidentStatus, setIncidentStatus] = useState("");
   const [adhocTask, setAdhocTask]           = useState("");
+  const [dialpadTicket, setDialpadTicket]   = useState("");
+  const [dialpadDesc, setDialpadDesc]       = useState("");
   const [showSummary, setShowSummary]       = useState(false);
   const [summaryData, setSummaryData]       = useState(null);
 
@@ -444,6 +446,30 @@ function App() {
     }
   };
 
+  const handleSaveDialpad = async () => {
+    if (!dialpadTicket.trim()) {
+      showToast("Please enter a Dialpad ticket number", "warning");
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/add-dialpad`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shift_id:      shiftId,
+          ticket_number: dialpadTicket.trim(),
+          description:   dialpadDesc.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Dialpad ticket saved");
+      setDialpadTicket("");
+      setDialpadDesc("");
+    } catch {
+      showToast("Failed to save Dialpad ticket", "error");
+    }
+  };
+
   const handleSaveHandover = async () => {
     if (!handoverDescription.trim() || !handoverTo.trim()) {
       showToast("Please enter both handover description and recipient", "warning");
@@ -461,7 +487,9 @@ function App() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast("Shift handover saved");
-      setHandoverDescription("");
+      setDialpadTicket("");
+    setDialpadDesc("");
+    setHandoverDescription("");
       setHandoverTo("");
     } catch {
       showToast("Failed to save handover", "error");
@@ -1551,6 +1579,37 @@ function App() {
                   />
                   <button className="ag-btn-primary" onClick={handleSaveAdhocTask}>
                     Save Ad-hoc Task
+                  </button>
+                </div>
+              </div>
+
+              {/* Dialpad Tickets */}
+              <div className="ag-card">
+                <div className="ag-card-header">
+                  <h3 style={styles.cardTitle}>Dialpad</h3>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.accentLight} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </div>
+                <div style={styles.cardBody}>
+                  <label style={styles.label}>Ticket Number</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Dialpad ticket number…"
+                    value={dialpadTicket}
+                    onChange={(e) => setDialpadTicket(e.target.value)}
+                    className="ag-input"
+                  />
+                  <label style={styles.label}>Description</label>
+                  <textarea
+                    rows="4"
+                    placeholder="Describe the Dialpad ticket or call details…"
+                    value={dialpadDesc}
+                    onChange={(e) => setDialpadDesc(e.target.value)}
+                    className="ag-input"
+                  />
+                  <button className="ag-btn-primary" onClick={handleSaveDialpad}>
+                    Save Dialpad Ticket
                   </button>
                 </div>
               </div>
