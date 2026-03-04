@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import AdvancedAnalytics from "./Advancedanalyticis";
 import UserManagement from "./Usermanagement";
 import AgentMonitorIntelligence from "./Agentmonitorintelligence";
+import { useTheme, buildGlobalCSS } from "./styles";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    MANAGER DASHBOARD
@@ -10,176 +11,7 @@ import AgentMonitorIntelligence from "./Agentmonitorintelligence";
 ───────────────────────────────────────────────────────────────────────────── */
 
 // ── Colour tokens (mirrors AdvancedAnalytics exactly) ──────────────────────
-const C = {
-  bg:           "#0d1117",
-  bgAlt:        "#161b22",
-  surface:      "#161b22",
-  raised:       "#1c2230",
-  border:       "#30363d",
-  borderLight:  "#21262d",
-  ink:          "#e6edf3",
-  inkMid:       "#8b949e",
-  inkLight:     "#6e7681",
-  accent:       "#2563eb",
-  accentLight:  "#3b82f6",
-  accentBorder: "rgba(37,99,235,0.3)",
-  greenText:    "#3fb950",
-  greenFaint:   "rgba(35,134,54,0.15)",
-  greenBorder:  "rgba(35,134,54,0.3)",
-  redText:      "#f85149",
-  redFaint:     "rgba(218,54,51,0.12)",
-  redBorder:    "rgba(218,54,51,0.3)",
-  amberText:    "#d29922",
-  amberFaint:   "rgba(158,106,3,0.15)",
-  amberBorder:  "rgba(158,106,3,0.3)",
-  indigo:       "#6366f1",
-  indigoFaint:  "rgba(99,102,241,0.12)",
-  indigoBorder: "rgba(99,102,241,0.3)",
-  purple:       "#a78bfa",
-  purpleFaint:  "rgba(167,139,250,0.15)",
-  purpleBorder: "rgba(167,139,250,0.3)",
-};
-
 // ── Global CSS injected once ───────────────────────────────────────────────
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  @keyframes mgr-spin  { to { transform: rotate(360deg); } }
-  @keyframes mgr-rise  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
-  @keyframes mgr-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
-
-  *, *::before, *::after { box-sizing: border-box; }
-
-  /* ── Card ── */
-  .mgr-card {
-    background: ${C.surface};
-    border: 1px solid ${C.border};
-    border-radius: 10px;
-    transition: border-color .18s;
-  }
-  .mgr-card:hover { border-color: ${C.accentBorder}; }
-
-  /* ── Buttons ── */
-  .mgr-btn {
-    background: ${C.accent};
-    border: none; color: #fff; border-radius: 6px;
-    padding: 7px 16px;
-    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: background .15s; white-space: nowrap;
-  }
-  .mgr-btn:hover { background: #1d4ed8; }
-
-  .mgr-btn-ghost {
-    background: transparent;
-    border: 1px solid ${C.border}; color: ${C.inkMid};
-    border-radius: 6px; padding: 7px 16px;
-    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: all .15s; white-space: nowrap;
-  }
-  .mgr-btn-ghost:hover { border-color: ${C.accentLight}; color: ${C.accentLight}; }
-
-  .mgr-btn-indigo {
-    background: #4f46e5;
-    border: none; color: #fff; border-radius: 6px;
-    padding: 7px 16px;
-    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: background .15s; white-space: nowrap;
-  }
-  .mgr-btn-indigo:hover { background: #4338ca; }
-
-  /* ── Nav tabs ── */
-  .mgr-tab {
-    padding: 14px 20px;
-    border: none; background: transparent;
-    cursor: pointer;
-    font-size: 13px; font-family: 'Inter', sans-serif; font-weight: 500;
-    color: ${C.inkMid};
-    border-bottom: 2px solid transparent;
-    transition: color .15s, border-color .15s;
-    white-space: nowrap;
-  }
-  .mgr-tab:hover { color: ${C.ink}; }
-  .mgr-tab-active {
-    color: ${C.accentLight} !important;
-    border-bottom-color: ${C.accentLight} !important;
-  }
-
-  /* ── Inputs ── */
-  .mgr-input {
-    background: ${C.bgAlt};
-    border: 1px solid ${C.border}; border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 13px; font-family: 'Inter', sans-serif; color: ${C.ink};
-    outline: none; transition: border-color .15s;
-  }
-  .mgr-input:focus { border-color: ${C.accentLight}; }
-  .mgr-input::placeholder { color: ${C.inkLight}; }
-
-  /* ── Table ── */
-  .mgr-thead th {
-    padding: 10px 16px;
-    font-size: 10px; font-family: 'Inter', sans-serif;
-    text-transform: uppercase; letter-spacing: .1em;
-    color: ${C.inkLight}; background: ${C.borderLight};
-    border-bottom: 1px solid ${C.border};
-    text-align: left; font-weight: 600; white-space: nowrap;
-  }
-  .mgr-tbody tr {
-    border-bottom: 1px solid ${C.borderLight};
-    transition: background .1s;
-  }
-  .mgr-tbody tr:hover { background: ${C.raised}; }
-  .mgr-tbody td {
-    padding: 12px 16px;
-    font-size: 13px; font-family: 'Inter', sans-serif; color: ${C.ink};
-  }
-
-  /* ── Modal ── */
-  .mgr-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.72);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(4px);
-    padding: 24px;
-  }
-  .mgr-modal {
-    background: ${C.surface};
-    border: 1px solid ${C.border};
-    border-radius: 14px;
-    width: 100%; max-width: 740px; max-height: 84vh;
-    overflow-y: auto;
-    box-shadow: 0 24px 56px rgba(0,0,0,0.7);
-    animation: mgr-rise .2s ease;
-  }
-  .mgr-modal-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid ${C.border};
-    display: flex; justify-content: space-between; align-items: center;
-    position: sticky; top: 0;
-    background: ${C.surface}; z-index: 10;
-  }
-  .mgr-modal-body { padding: 24px; }
-
-  /* ── Badges ── */
-  .mgr-badge-active {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px;
-    background: ${C.greenFaint}; border: 1px solid ${C.greenBorder};
-    border-radius: 999px;
-    font-size: 11px; font-weight: 600; color: ${C.greenText};
-    font-family: 'Inter', sans-serif;
-  }
-  .mgr-badge-done {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px;
-    background: ${C.indigoFaint}; border: 1px solid ${C.indigoBorder};
-    border-radius: 999px;
-    font-size: 11px; font-weight: 600; color: #818cf8;
-    font-family: 'Inter', sans-serif;
-  }
-`;
-
 /* ══════════════════════════════════════════════════════════════════════════
    PURE SHARED COMPONENTS  (defined outside ManagerDashboard — no re-mount)
 ══════════════════════════════════════════════════════════════════════════ */
@@ -632,6 +464,8 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
 ══════════════════════════════════════════════════════════════════════════ */
 
 function ManagerDashboard() {
+  const { C, isDark, toggle } = useTheme();
+  const GLOBAL_CSS = buildGlobalCSS(C);
   const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
   /* ── State ── */

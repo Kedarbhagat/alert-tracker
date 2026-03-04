@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { styles, C, GLOBAL_CSS } from "./styles";
+import { useTheme, ThemeProvider, buildStyles, buildGlobalCSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
 
-function App() {
+function AppInner() {
+  const { C, isDark, toggle } = useTheme();
+  const styles = buildStyles(C);
   const [agents, setAgents]               = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
   const [agentsError, setAgentsError]     = useState(null);
@@ -123,16 +125,13 @@ function App() {
 
   const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
-  // ── Inject global CSS once ──────────────────────────────────────────────────
+  // ── Inject/update global CSS on theme change ─────────────────────────────
   useEffect(() => {
     const id = "ag-global-styles";
-    if (!document.getElementById(id)) {
-      const el = document.createElement("style");
-      el.id = id;
-      el.textContent = GLOBAL_CSS;
-      document.head.appendChild(el);
-    }
-  }, []);
+    let el = document.getElementById(id);
+    if (!el) { el = document.createElement("style"); el.id = id; document.head.appendChild(el); }
+    el.textContent = buildGlobalCSS(C);
+  }, [C]);
 
   // ── Fetch agents from DB on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -644,8 +643,8 @@ function App() {
       <div style={{
         position: "fixed", top: 10, right: 16, zIndex: 9999,
         display: "flex", alignItems: "center", gap: "4px",
-        background: "#1c2230",
-        border: "1px solid #3d444d",
+        background: C.surface,
+        border: `1px solid ${C.border}`,
         borderRadius: "10px",
         padding: "4px",
         boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
@@ -690,8 +689,43 @@ function App() {
           )}
         </button>
 
+        {/* Theme toggle */}
+        <button
+          onClick={toggle}
+          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className="ag-action-btn"
+          style={{
+            boxSizing: "border-box",
+            width: "36px", height: "36px", borderRadius: "7px",
+            background: "transparent",
+            border: `1px solid ${C.border}`,
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.15s, border-color 0.15s",
+            flexShrink: 0,
+          }}
+        >
+          {isDark ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.amberText} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.indigo} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          )}
+        </button>
+
         {/* Divider */}
-        <div style={{ width: "1px", height: "18px", background: "#3d444d", flexShrink: 0 }} />
+        <div style={{ width: "1px", height: "18px", background: C.border, flexShrink: 0 }} />
 
         {/* Manager toggle */}
         <button
@@ -741,7 +775,7 @@ function App() {
         <div style={{
           position:"fixed", top:58, right:16, zIndex:9998,
           width:520, maxHeight:680,
-          background:"#161b22", border:"1px solid #30363d",
+          background:C.surface, border:`1px solid ${C.border}`,
           borderRadius:12, boxShadow:"0 16px 48px rgba(0,0,0,0.8)",
           display:"flex", flexDirection:"column",
           fontFamily:"'Inter',sans-serif",
@@ -756,10 +790,10 @@ function App() {
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              <span style={{ fontSize:13, fontWeight:700, color:"#e6edf3" }}>Shift Handovers</span>
+              <span style={{ fontSize:13, fontWeight:700, color:C.ink }}>Shift Handovers</span>
               {handovers.length > 0 && (
                 <span style={{ fontSize:10, color:"#8b949e", background:"#21262d",
-                  padding:"1px 7px", borderRadius:99, border:"1px solid #30363d" }}>
+                  padding:"1px 7px", borderRadius:99, border:`1px solid ${C.border}` }}>
                   {handovers.length}
                 </span>
               )}
@@ -789,7 +823,7 @@ function App() {
               <div key={h.id} style={{
                 padding:"14px 20px",
                 borderBottom: i < handovers.length-1 ? "1px solid #21262d" : "none",
-                background: i < unseenCount ? "rgba(37,99,235,0.05)" : "transparent",
+                background: i < unseenCount ? C.accentGlow : "transparent",
                 transition:"background .15s",
               }}>
                 {/* From / To row */}
@@ -807,7 +841,7 @@ function App() {
                       {(h.from_name||"?").charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <span style={{ fontSize:12, fontWeight:600, color:"#e6edf3" }}>{h.from_name}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color:C.ink }}>{h.from_name}</span>
                       <span style={{ fontSize:11, color:"#6e7681", marginLeft:5 }}>handed over to</span>
                       <span style={{ fontSize:12, fontWeight:600, color:"#3b82f6", marginLeft:5 }}>
                         {h.handover_to}
@@ -826,8 +860,8 @@ function App() {
                 {/* Handover note */}
                 <div style={{
                   fontSize:12, color:"#8b949e", lineHeight:1.6,
-                  background:"#0d1117", borderRadius:6, padding:"10px 12px",
-                  border:"1px solid #21262d", marginLeft:32,
+                  background:C.bgAlt, borderRadius:6, padding:"10px 12px",
+                  border:`1px solid ${C.borderLight}`, marginLeft:32,
                   maxHeight:"260px", overflowY:"auto",
                 }}>
                   {(h.description || "").split("\n").filter(line => line.trim()).map((line, li) => (
@@ -1691,4 +1725,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}

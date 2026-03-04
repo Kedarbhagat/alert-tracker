@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTheme, buildGlobalCSS } from "./styles";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    AGENT · MONITOR · INTELLIGENCE
@@ -6,40 +7,9 @@ import { useState, useEffect, useCallback } from "react";
    Alerts are grouped by monitor and show exact submission timestamps.
 ───────────────────────────────────────────────────────────────────────────── */
 
-const C = {
-  bg:           "#0d1117",
-  bgAlt:        "#161b22",
-  surface:      "#161b22",
-  raised:       "#1c2230",
-  border:       "#30363d",
-  borderLight:  "#21262d",
-  ink:          "#e6edf3",
-  inkMid:       "#8b949e",
-  inkLight:     "#6e7681",
-  accent:       "#2563eb",
-  accentLight:  "#3b82f6",
-  accentBorder: "rgba(37,99,235,0.3)",
-  greenText:    "#3fb950",
-  greenFaint:   "rgba(35,134,54,0.15)",
-  greenBorder:  "rgba(35,134,54,0.3)",
-  red:          "#da3633",
-  redText:      "#f85149",
-  redFaint:     "rgba(218,54,51,0.12)",
-  redBorder:    "rgba(218,54,51,0.3)",
-  amberText:    "#d29922",
-  amberFaint:   "rgba(158,106,3,0.15)",
-  amberBorder:  "rgba(158,106,3,0.3)",
-  indigo:       "#6366f1",
-  indigoFaint:  "rgba(99,102,241,0.12)",
-  indigoBorder: "rgba(99,102,241,0.3)",
-  purple:       "#a78bfa",
-  purpleFaint:  "rgba(167,139,250,0.15)",
-  purpleBorder: "rgba(167,139,250,0.3)",
-};
-
 const PALETTE = ["#3b82f6","#6366f1","#3fb950","#f85149","#d29922","#a78bfa","#22d3ee","#fb923c","#34d399","#f472b6"];
 
-const CSS = `
+const buildCSS = (C) => `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
   @keyframes ami-rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
   @keyframes ami-spin { to { transform:rotate(360deg); } }
@@ -843,6 +813,8 @@ function MonitorIntelligenceView({ api, days, refreshKey = 0 }) {
    Props: { api }  e.g. "http://192.168.74.152:5000"
 ══════════════════════════════════════════════════════════════════════════ */
 export default function AgentMonitorIntelligence({ api }) {
+  const { C, isDark } = useTheme();
+  const GLOBAL_CSS = buildGlobalCSS(C);
   const [view, setView]                   = useState("agents");
   const [agents, setAgents]               = useState([]);
   const [agLoading, setAgLoading]         = useState(true);
@@ -883,7 +855,7 @@ export default function AgentMonitorIntelligence({ api }) {
   if (view === "agent-detail" && selectedAgent) {
     return (
       <div>
-        <style>{CSS}</style>
+        <style>{GLOBAL_CSS + CSS}</style>
         <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 24px", display:"flex", overflowX:"auto" }}>
           {VIEWS.map(v => (
             <button key={v.id} className={`ami-tab${v.id==="agents"?" ami-tab-active":""}`} onClick={() => { setView(v.id); setSelectedAgent(null); }}>
@@ -900,7 +872,7 @@ export default function AgentMonitorIntelligence({ api }) {
 
   return (
     <div>
-      <style>{CSS}</style>
+      <style>{GLOBAL_CSS + CSS}</style>
 
       {/* Top bar */}
       <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 24px", display:"flex", alignItems:"center", overflowX:"auto" }}>

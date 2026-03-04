@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme, buildGlobalCSS } from "./styles";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    ADVANCED ANALYTICS — Enterprise Dark Dashboard
@@ -6,58 +7,7 @@ import { useState, useEffect, useRef } from "react";
    Props: { data, loading, error, onRefresh }
 ───────────────────────────────────────────────────────────────────────────── */
 
-const C = {
-  bg:            "#0d1117",
-  bgAlt:         "#161b22",
-  surface:       "#161b22",
-  surfaceRaised: "#1c2230",
-  surfaceBorder: "#21262d",
-  border:        "#30363d",
-  borderLight:   "#21262d",
-  ink:           "#e6edf3",
-  inkMid:        "#8b949e",
-  inkLight:      "#6e7681",
-  inkFaint:      "#30363d",
-  accent:        "#2563eb",
-  accentLight:   "#3b82f6",
-  accentFaint:   "rgba(37,99,235,0.12)",
-  accentBorder:  "rgba(37,99,235,0.35)",
-  green:         "#238636",
-  greenFaint:    "rgba(35,134,54,0.15)",
-  greenText:     "#3fb950",
-  red:           "#da3633",
-  redFaint:      "rgba(218,54,51,0.12)",
-  redText:       "#f85149",
-  redBorder:     "rgba(218,54,51,0.3)",
-  amber:         "#9e6a03",
-  amberFaint:    "rgba(158,106,3,0.15)",
-  amberText:     "#d29922",
-  amberBorder:   "rgba(158,106,3,0.3)",
-  indigo:        "#6366f1",
-  indigoFaint:   "rgba(99,102,241,0.12)",
-  indigoBorder:  "rgba(99,102,241,0.3)",
-};
-
 const PALETTE = ["#3b82f6","#6366f1","#3fb950","#f85149","#d29922","#a78bfa","#22d3ee","#fb923c"];
-
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-  @keyframes aa-rise  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
-  @keyframes aa-spin  { to { transform: rotate(360deg); } }
-  @keyframes aa-pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
-  @keyframes aa-draw  { from { stroke-dashoffset: var(--len,1000); } to { stroke-dashoffset: 0; } }
-  *, *::before, *::after { box-sizing: border-box; }
-  .aa-card { background:#161b22; border:1px solid #30363d; border-radius:10px; transition:border-color .18s; }
-  .aa-card:hover { border-color:rgba(59,130,246,0.35); }
-  .aa-btn { background:#2563eb; border:none; color:#fff; border-radius:6px; padding:7px 18px; font-family:'Inter',sans-serif; font-size:12px; font-weight:500; cursor:pointer; transition:background .15s; }
-  .aa-btn:hover { background:#1d4ed8; }
-  .aa-btn-ghost { background:transparent; border:1px solid #30363d; color:#8b949e; border-radius:6px; padding:7px 18px; font-family:'Inter',sans-serif; font-size:12px; font-weight:500; cursor:pointer; transition:all .15s; }
-  .aa-btn-ghost:hover { border-color:#3b82f6; color:#3b82f6; }
-  .aa-thead th { padding:10px 14px; font-size:10px; font-family:'Inter',sans-serif; text-transform:uppercase; letter-spacing:.1em; color:#6e7681; background:#21262d; border-bottom:1px solid #30363d; text-align:left; font-weight:600; }
-  .aa-tbody tr { border-bottom:1px solid #21262d; transition:background .1s; cursor:pointer; }
-  .aa-tbody tr:hover { background:#1c2230; }
-  .aa-tbody td { padding:10px 14px; font-size:13px; font-family:'Inter',sans-serif; color:#e6edf3; }
-`;
 
 function useAnimated(target, duration = 900) {
   const [val, setVal] = useState(0);
@@ -636,6 +586,8 @@ function toISODate(d) { return d.toISOString().slice(0, 10); }
 /* ═══════════════════════════════════════════════ MAIN ══ */
 export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net"
 }) {
+  const { C, isDark } = useTheme();
+  const GLOBAL_CSS = buildGlobalCSS(C);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
