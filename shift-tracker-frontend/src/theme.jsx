@@ -102,7 +102,7 @@ const ThemeCtx = createContext({ C: DARK, isDark: true, toggle: () => {} });
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
     try { return localStorage.getItem("p44-theme") !== "light"; }
-    catch { return true; }
+    catch { return false; }
   });
 
   const C = isDark ? DARK : LIGHT;
