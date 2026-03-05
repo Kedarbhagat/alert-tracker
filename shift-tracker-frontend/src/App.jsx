@@ -166,8 +166,9 @@ function App() {
   const [zdError, setZdError]             = useState(null);
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
-  const zdPrevIds                         = useRef({});
-  const shiftIdRef                          = useRef(null);   // always current shiftId for closures
+  const zdPrevIds                         = useRef({});   // {id -> status} for polling diff
+  const shiftIdRef                          = useRef(null); // always-current shiftId for closures
+  const zdCountedIds                        = useRef(new Set()); // ticket ids already counted this shift
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -226,9 +227,13 @@ function App() {
 
   // ── Triage debounce ──────────────────────────────────────────────────────
   const triageUpdating = useRef(false);
-
-  // Keep shiftIdRef in sync with shiftId state so interval closures always have latest value
-  useEffect(() => { shiftIdRef.current = shiftId; }, [shiftId]);
+  useEffect(() => {
+    shiftIdRef.current = shiftId;
+    if (!shiftId) {
+      zdCountedIds.current = new Set(); // reset on shift end
+      zdPrevIds.current = {};
+    }
+  }, [shiftId]);
 
   const fetchHandovers = async () => {
     setHandoversLoading(true);
@@ -375,34 +380,51 @@ function App() {
       const data = await res.json();
       const incoming = data.tickets || [];
 
-      // "Done" = solved OR closed — both count toward triage
       const DONE_STATUSES = ["solved", "closed"];
+      const prevStatusMap = zdPrevIds.current;   // {id -> status} from last poll
+      const alreadyCounted = zdCountedIds.current; // ids counted this shift already
+      const currentShiftId = shiftIdRef.current;
 
-      const prevStatusMap = zdPrevIds.current; // {id -> status}
       let newlyDoneCount = 0;
+
       incoming.forEach(t => {
-        const prevStatus = prevStatusMap[t.id];
-        const wasNotDone = prevStatus !== undefined && !DONE_STATUSES.includes(prevStatus);
-        const isNowDone  = DONE_STATUSES.includes(t.status);
-        if (wasNotDone && isNowDone) {
-          newlyDoneCount++;
-          showToast(`Ticket #${t.id} — "${t.subject}" marked as ${t.status}`, "success");
+        const isDone = DONE_STATUSES.includes(t.status);
+
+        if (isDone && !alreadyCounted.has(t.id)) {
+          // Either newly transitioned this poll, OR already done on first load — count it once
+          const prevStatus = prevStatusMap[t.id];
+          const justTransitioned = prevStatus !== undefined && !DONE_STATUSES.includes(prevStatus);
+          const firstLoad = prevStatus === undefined; // first time we see this ticket
+
+          if (justTransitioned) {
+            newlyDoneCount++;
+            alreadyCounted.add(t.id);
+            showToast(`Ticket #${t.id} — "${t.subject}" marked as ${t.status}`, "success");
+          } else if (firstLoad) {
+            // Already done when we first loaded — count it but no toast (it was done before shift or on load)
+            newlyDoneCount++;
+            alreadyCounted.add(t.id);
+          }
         }
       });
 
-      // Auto-increment triage count for each newly solved/closed ticket
-      if (newlyDoneCount > 0 && shiftIdRef.current) {
+      console.log(`[ZD] poll: ${incoming.length} tickets, ${newlyDoneCount} newly done, shiftId=${currentShiftId}`);
+
+      if (newlyDoneCount > 0 && currentShiftId) {
         fetch(`${API}/update-triage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: shiftIdRef.current, change: newlyDoneCount }),
+          body: JSON.stringify({ shift_id: currentShiftId, change: newlyDoneCount }),
         })
           .then(r => r.json())
-          .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
-          .catch(() => {});
+          .then(d => {
+            console.log(`[ZD] triage updated to ${d.triaged_count}`);
+            if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count);
+          })
+          .catch(e => console.error("[ZD] update-triage failed:", e));
       }
 
-      // Save current status map for next poll diff
+      // Save current statuses for next poll diff
       const nextStatusMap = {};
       incoming.forEach(t => { nextStatusMap[t.id] = t.status; });
       zdPrevIds.current = nextStatusMap;
