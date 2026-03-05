@@ -166,9 +166,8 @@ function App() {
   const [zdError, setZdError]             = useState(null);
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
-  const zdPrevIds                         = useRef({});   // {id -> status} for polling diff
+  const zdBaselineDone                    = useRef(null); // done count at shift start (null = not set yet)
   const shiftIdRef                          = useRef(null); // always-current shiftId for closures
-  const zdCountedIds                        = useRef(new Set()); // ticket ids already counted this shift
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -230,8 +229,7 @@ function App() {
   useEffect(() => {
     shiftIdRef.current = shiftId;
     if (!shiftId) {
-      zdCountedIds.current = new Set(); // reset on shift end
-      zdPrevIds.current = {};
+      zdBaselineDone.current = null; // reset when shift ends
     }
   }, [shiftId]);
 
@@ -381,53 +379,34 @@ function App() {
       const incoming = data.tickets || [];
 
       const DONE_STATUSES = ["solved", "closed"];
-      const prevStatusMap = zdPrevIds.current;   // {id -> status} from last poll
-      const alreadyCounted = zdCountedIds.current; // ids counted this shift already
+      const currentDoneCount = incoming.filter(t => DONE_STATUSES.includes(t.status)).length;
+
+      // On first fetch of this shift, set the baseline (tickets already done before shift started)
+      if (zdBaselineDone.current === null) {
+        zdBaselineDone.current = currentDoneCount;
+        console.log(`[ZD] Baseline set: ${currentDoneCount} tickets already done at shift start`);
+      }
+
+      // Tickets done THIS shift = current total minus baseline
+      const doneDuringShift = Math.max(0, currentDoneCount - zdBaselineDone.current);
       const currentShiftId = shiftIdRef.current;
 
-      let newlyDoneCount = 0;
+      console.log(`[ZD] done now: ${currentDoneCount}, baseline: ${zdBaselineDone.current}, this shift: ${doneDuringShift}, shiftId: ${currentShiftId}`);
 
-      incoming.forEach(t => {
-        const isDone = DONE_STATUSES.includes(t.status);
-
-        if (isDone && !alreadyCounted.has(t.id)) {
-          // Either newly transitioned this poll, OR already done on first load — count it once
-          const prevStatus = prevStatusMap[t.id];
-          const justTransitioned = prevStatus !== undefined && !DONE_STATUSES.includes(prevStatus);
-          const firstLoad = prevStatus === undefined; // first time we see this ticket
-
-          if (justTransitioned) {
-            newlyDoneCount++;
-            alreadyCounted.add(t.id);
-            showToast(`Ticket #${t.id} — "${t.subject}" marked as ${t.status}`, "success");
-          } else if (firstLoad) {
-            // Already done when we first loaded — count it but no toast (it was done before shift or on load)
-            newlyDoneCount++;
-            alreadyCounted.add(t.id);
-          }
-        }
-      });
-
-      console.log(`[ZD] poll: ${incoming.length} tickets, ${newlyDoneCount} newly done, shiftId=${currentShiftId}`);
-
-      if (newlyDoneCount > 0 && currentShiftId) {
+      // Always sync the triage count to match reality
+      if (currentShiftId) {
         fetch(`${API}/update-triage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: currentShiftId, change: newlyDoneCount }),
+          body: JSON.stringify({ shift_id: currentShiftId, set_count: doneDuringShift }),
         })
           .then(r => r.json())
-          .then(d => {
-            console.log(`[ZD] triage updated to ${d.triaged_count}`);
-            if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count);
-          })
+          .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
           .catch(e => console.error("[ZD] update-triage failed:", e));
+      } else {
+        // No backend call needed, just update local state
+        setTriagedCount(doneDuringShift);
       }
-
-      // Save current statuses for next poll diff
-      const nextStatusMap = {};
-      incoming.forEach(t => { nextStatusMap[t.id] = t.status; });
-      zdPrevIds.current = nextStatusMap;
 
       setZdTickets(incoming);
       setZdLastFetch(new Date());

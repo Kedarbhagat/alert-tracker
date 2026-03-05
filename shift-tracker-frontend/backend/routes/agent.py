@@ -81,14 +81,27 @@ def start_shift():
 def update_triage():
     if request.method == "OPTIONS": return "", 200
     data = request.json or {}
-    shift_id, change = data.get("shift_id"), data.get("change")
-    if shift_id is None or change is None: return jsonify({"error": "shift_id and change are required"}), 400
+    shift_id = data.get("shift_id")
+    if shift_id is None: return jsonify({"error": "shift_id is required"}), 400
+
+    # Support both set_count (absolute) and change (relative increment)
+    set_count = data.get("set_count")
+    change    = data.get("change")
+
+    if set_count is not None:
+        # Set absolute value — used by Zendesk baseline approach
+        sql    = "UPDATE shifts SET triaged_count=%s WHERE id=%s RETURNING triaged_count"
+        params = (max(0, int(set_count)), shift_id)
+    elif change is not None:
+        # Relative increment — used by manual +/- buttons
+        sql    = "UPDATE shifts SET triaged_count=GREATEST(triaged_count+%s,0) WHERE id=%s RETURNING triaged_count"
+        params = (change, shift_id)
+    else:
+        return jsonify({"error": "set_count or change is required"}), 400
+
     try:
         with db() as cur:
-            cur.execute(
-                "UPDATE shifts SET triaged_count=GREATEST(triaged_count+%s,0) WHERE id=%s RETURNING triaged_count",
-                (change, shift_id)
-            )
+            cur.execute(sql, params)
             row = cur.fetchone()
         if not row: return jsonify({"error": "Shift not found"}), 404
         return jsonify({"triaged_count": row[0]})
