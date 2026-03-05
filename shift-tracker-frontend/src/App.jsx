@@ -167,6 +167,7 @@ function App() {
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
   const zdPrevIds                         = useRef({});
+  const shiftIdRef                          = useRef(null);   // always current shiftId for closures
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -225,6 +226,9 @@ function App() {
 
   // ── Triage debounce ──────────────────────────────────────────────────────
   const triageUpdating = useRef(false);
+
+  // Keep shiftIdRef in sync with shiftId state so interval closures always have latest value
+  useEffect(() => { shiftIdRef.current = shiftId; }, [shiftId]);
 
   const fetchHandovers = async () => {
     setHandoversLoading(true);
@@ -358,8 +362,8 @@ function App() {
     open:    { bg:"rgba(52,211,153,0.12)",  border:"rgba(52,211,153,0.35)",  text:"#34d399",  label:"Open"    },
     pending: { bg:"rgba(251,191,36,0.12)",  border:"rgba(251,191,36,0.35)",  text:"#fbbf24",  label:"Pending" },
     hold:    { bg:"rgba(192,132,252,0.12)", border:"rgba(192,132,252,0.35)", text:"#c084fc",  label:"On-Hold" },
-    solved:  { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#4ade80",  label:"Solved ✔ Done"  },
-    closed:  { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#4ade80",  label:"Closed ✔ Done"  },
+    solved:  { bg:"rgba(99,102,241,0.12)",  border:"rgba(99,102,241,0.35)",  text:"#818cf8",  label:"Solved"  },
+    closed:  { bg:"rgba(248,113,113,0.12)", border:"rgba(248,113,113,0.35)", text:"#f87171",  label:"Closed"  },
   };
 
   const fetchZdByAgent = async (agentName) => {
@@ -387,11 +391,11 @@ function App() {
       });
 
       // Auto-increment triage count for each newly solved/closed ticket
-      if (newlyDoneCount > 0 && shiftId) {
+      if (newlyDoneCount > 0 && shiftIdRef.current) {
         fetch(`${API}/update-triage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: shiftId, change: newlyDoneCount }),
+          body: JSON.stringify({ shift_id: shiftIdRef.current, change: newlyDoneCount }),
         })
           .then(r => r.json())
           .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
@@ -1420,7 +1424,7 @@ function App() {
             <div style={styles.metricsRow}>
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
-                  <span style={styles.metricLabel}>Tickets Done</span>
+                  <span style={styles.metricLabel}>Triaged Cases</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
@@ -1563,7 +1567,7 @@ function App() {
                         {/* Open tickets */}
                         {open.length > 0 && (
                           <>
-                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>In Progress ({open.length})</div>
+                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Active ({open.length})</div>
                             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8, marginBottom:16 }}>
                               {open.map(renderTicket)}
                             </div>
@@ -1573,7 +1577,7 @@ function App() {
                         {/* Closed/solved */}
                         {closed.length > 0 && (
                           <>
-                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Done ({closed.length})</div>
+                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Resolved ({closed.length})</div>
                             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8 }}>
                               {closed.map(renderTicket)}
                             </div>
