@@ -6,6 +6,7 @@ from db import init_pool
 from routes.agent import agent_bp
 from routes.manager import manager_bp
 from routes.users import users_bp
+from routes.zendesk import zendesk_bp
 
 load_dotenv()
 
@@ -15,6 +16,7 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 app.register_blueprint(agent_bp)
 app.register_blueprint(manager_bp)
 app.register_blueprint(users_bp)
+app.register_blueprint(zendesk_bp)
 
 init_pool()
 
