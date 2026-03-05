@@ -167,7 +167,7 @@ function App() {
   const [zdError, setZdError]             = useState(null);
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
-  const zdPrevIds                         = useRef({});
+  const zdPrevIds                         = useRef({});   // {id -> status} for polling diff
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -359,7 +359,7 @@ function App() {
     open:    { bg:"rgba(52,211,153,0.12)",  border:"rgba(52,211,153,0.35)",  text:"#34d399",  label:"Open"    },
     pending: { bg:"rgba(251,191,36,0.12)",  border:"rgba(251,191,36,0.35)",  text:"#fbbf24",  label:"Pending" },
     hold:    { bg:"rgba(192,132,252,0.12)", border:"rgba(192,132,252,0.35)", text:"#c084fc",  label:"On-Hold" },
-    solved:  { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#4ade80",  label:"Solved ✔ Done"  },
+    solved:  { bg:"rgba(99,102,241,0.12)",  border:"rgba(99,102,241,0.35)",  text:"#818cf8",  label:"Solved — Awaiting Close"  },
     closed:  { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#4ade80",  label:"Closed ✔ Done"  },
   };
 
@@ -372,45 +372,38 @@ function App() {
       const data = await res.json();
       const incoming = data.tickets || [];
 
-      const DONE_STATUSES = ["solved", "closed"];
-      const currentDoneCount = incoming.filter(t => DONE_STATUSES.includes(t.status)).length;
-
+      // Detect tickets newly transitioned since last poll
+      // Only "closed" = truly DONE and counts toward triage; "solved" = pending close
       const prevStatusMap = zdPrevIds.current; // {id -> status}
-      let newlyDoneCount = 0;
+      let newlyClosedCount = 0;
       incoming.forEach(t => {
         const prevStatus = prevStatusMap[t.id];
-        const wasNotDone = prevStatus !== undefined && !DONE_STATUSES.includes(prevStatus);
-        const isNowDone  = DONE_STATUSES.includes(t.status);
-        if (wasNotDone && isNowDone) {
-          newlyDoneCount++;
-          showToast(`Ticket #${t.id} — "${t.subject}" marked as ${t.status}`, "success");
+        const wasNotClosed = prevStatus !== undefined && prevStatus !== "closed";
+        const isNowClosed  = t.status === "closed";
+        if (wasNotClosed && isNowClosed) {
+          newlyClosedCount++;
+          showToast(`Ticket #${t.id} — "${t.subject}" is now Closed`, "success");
+        } else if (prevStatus !== undefined && prevStatus !== "solved" && t.status === "solved") {
+          showToast(`Ticket #${t.id} — "${t.subject}" is Solved (awaiting close)`, "info");
         }
       });
 
-      // Auto-increment triage count for each newly solved/closed ticket
-      if (newlyDoneCount > 0 && shiftId) {
+      // Auto-increment triage count for each newly closed ticket
+      if (newlyClosedCount > 0 && shiftId) {
         fetch(`${API}/update-triage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: shiftId, change: newlyDoneCount }),
+          body: JSON.stringify({ shift_id: shiftId, change: newlyClosedCount }),
         })
           .then(r => r.json())
           .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
           .catch(() => {});
       }
 
-      // Tickets handled THIS shift = current minus what was already done before shift
-      const doneDuringShift = Math.max(0, currentDoneCount - zdBaselineDone.current);
-      setZdDoneCount(doneDuringShift);
-
-      // Sync to DB
-      if (shiftIdRef.current) {
-        fetch(`${API}/update-zd-count`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: shiftIdRef.current, count: doneDuringShift }),
-        }).catch(() => {});
-      }
+      // Save current status map for next poll diff: {id -> status}
+      const nextStatusMap = {};
+      incoming.forEach(t => { nextStatusMap[t.id] = t.status; });
+      zdPrevIds.current = nextStatusMap;
 
       setZdTickets(incoming);
       setZdLastFetch(new Date());
@@ -1430,7 +1423,7 @@ function App() {
             <div style={styles.metricsRow}>
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
-                  <span style={styles.metricLabel}>Tickets Done</span>
+                  <span style={styles.metricLabel}>Closed Tickets</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
@@ -1533,8 +1526,9 @@ function App() {
 
                   {/* Ticket grid */}
                   {zdTickets.length > 0 && (() => {
-                    const open   = zdTickets.filter(t => !["solved","closed"].includes(t.status));
-                    const closed = zdTickets.filter(t =>  ["solved","closed"].includes(t.status));
+                    const open   = zdTickets.filter(t => !["closed"].includes(t.status));
+                    const done   = zdTickets.filter(t =>   t.status === "closed");
+                    const closed = done; // alias for render
                     const renderTicket = (t) => {
                       const sc = ZD_COLOR[t.status] || ZD_COLOR.open;
                       return (
@@ -1543,7 +1537,7 @@ function App() {
                           border: `1px solid ${["solved","closed"].includes(t.status) ? sc.border : C.border}`,
                           borderLeft: `3px solid ${sc.text}`,
                           borderRadius:8, padding:"12px 16px",
-                          opacity: ["solved","closed"].includes(t.status) ? 0.7 : 1,
+                          opacity: t.status === "closed" ? 0.65 : 1,
                           transition:"all .2s",
                         }}>
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
@@ -1603,7 +1597,7 @@ function App() {
                         {/* Closed/solved */}
                         {closed.length > 0 && (
                           <>
-                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Done ({closed.length})</div>
+                            <div style={{ fontSize:10, fontWeight:700, color:"#4ade80", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Done — Closed ({done.length})</div>
                             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8 }}>
                               {closed.map(renderTicket)}
                             </div>
