@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useTheme, ThemeProvider, buildStyles, buildGlobalCSS } from "./styles";
+import { styles, C, GLOBAL_CSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
 
-function AppInner() {
-  const { C, isDark, toggle } = useTheme();
-  const styles = buildStyles(C);
+function App() {
   const [agents, setAgents]               = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
   const [agentsError, setAgentsError]     = useState(null);
@@ -80,13 +78,13 @@ function AppInner() {
         
     ] , 
     "#CC-WATCH-OCEAN":[
-      "Ocean Carrier Metrics –  Update 1",
-      "Ocean Carrier Metrics –  Update 2",
-      "Ocean Carrier Metrics –  Update 3",
-      "Ocean Carrier Metrics –  Update 4",
-      "Ocean Carrier Metrics –  Update 5",
-      "Ocean Carrier Metrics –  Update 6",
-      "Ocean Carrier Metrics –  Update 7"
+      "Ocean Carrier Metrics –  Update 1",
+      "Ocean Carrier Metrics –  Update 2",
+      "Ocean Carrier Metrics –  Update 3",
+      "Ocean Carrier Metrics –  Update 4",
+      "Ocean Carrier Metrics –  Update 5",
+      "Ocean Carrier Metrics –  Update 6",
+      "Ocean Carrier Metrics –  Update 7"
     ] ,
     "#GRAINGER-CREATION-VOLUME-ALERT" :[
       "Grainger: Yesterday's Total Shipment Count" , 
@@ -125,13 +123,16 @@ function AppInner() {
 
   const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
-  // ── Inject/update global CSS on theme change ─────────────────────────────
+  // ── Inject global CSS once ──────────────────────────────────────────────────
   useEffect(() => {
     const id = "ag-global-styles";
-    let el = document.getElementById(id);
-    if (!el) { el = document.createElement("style"); el.id = id; document.head.appendChild(el); }
-    el.textContent = buildGlobalCSS(C);
-  }, [C]);
+    if (!document.getElementById(id)) {
+      const el = document.createElement("style");
+      el.id = id;
+      el.textContent = GLOBAL_CSS;
+      document.head.appendChild(el);
+    }
+  }, []);
 
   // ── Fetch agents from DB on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -183,6 +184,8 @@ function AppInner() {
 
   const [incidentStatus, setIncidentStatus] = useState("");
   const [adhocTask, setAdhocTask]           = useState("");
+  const [dialpadTicket, setDialpadTicket]   = useState("");
+  const [dialpadDesc, setDialpadDesc]       = useState("");
   const [showSummary, setShowSummary]       = useState(false);
   const [summaryData, setSummaryData]       = useState(null);
 
@@ -443,6 +446,30 @@ function AppInner() {
     }
   };
 
+  const handleSaveDialpad = async () => {
+    if (!dialpadTicket.trim()) {
+      showToast("Please enter a Dialpad ticket number", "warning");
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/add-dialpad`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shift_id:      shiftId,
+          ticket_number: dialpadTicket.trim(),
+          description:   dialpadDesc.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Dialpad ticket saved");
+      setDialpadTicket("");
+      setDialpadDesc("");
+    } catch {
+      showToast("Failed to save Dialpad ticket", "error");
+    }
+  };
+
   const handleSaveHandover = async () => {
     if (!handoverDescription.trim() || !handoverTo.trim()) {
       showToast("Please enter both handover description and recipient", "warning");
@@ -460,7 +487,9 @@ function AppInner() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast("Shift handover saved");
-      setHandoverDescription("");
+      setDialpadTicket("");
+    setDialpadDesc("");
+    setHandoverDescription("");
       setHandoverTo("");
     } catch {
       showToast("Failed to save handover", "error");
@@ -615,8 +644,8 @@ function AppInner() {
       <div style={{
         position: "fixed", top: 10, right: 16, zIndex: 9999,
         display: "flex", alignItems: "center", gap: "4px",
-        background: C.surface,
-        border: `1px solid ${C.border}`,
+        background: "#1c2230",
+        border: "1px solid #3d444d",
         borderRadius: "10px",
         padding: "4px",
         boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
@@ -661,43 +690,8 @@ function AppInner() {
           )}
         </button>
 
-        {/* Theme toggle */}
-        <button
-          onClick={toggle}
-          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          className="ag-action-btn"
-          style={{
-            boxSizing: "border-box",
-            width: "36px", height: "36px", borderRadius: "7px",
-            background: "transparent",
-            border: `1px solid ${C.border}`,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "background 0.15s, border-color 0.15s",
-            flexShrink: 0,
-          }}
-        >
-          {isDark ? (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.amberText} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-          ) : (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.indigo} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          )}
-        </button>
-
         {/* Divider */}
-        <div style={{ width: "1px", height: "18px", background: C.border, flexShrink: 0 }} />
+        <div style={{ width: "1px", height: "18px", background: "#3d444d", flexShrink: 0 }} />
 
         {/* Manager toggle */}
         <button
@@ -747,7 +741,7 @@ function AppInner() {
         <div style={{
           position:"fixed", top:58, right:16, zIndex:9998,
           width:520, maxHeight:680,
-          background:C.surface, border:`1px solid ${C.border}`,
+          background:"#161b22", border:"1px solid #30363d",
           borderRadius:12, boxShadow:"0 16px 48px rgba(0,0,0,0.8)",
           display:"flex", flexDirection:"column",
           fontFamily:"'Inter',sans-serif",
@@ -762,10 +756,10 @@ function AppInner() {
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              <span style={{ fontSize:13, fontWeight:700, color:C.ink }}>Shift Handovers</span>
+              <span style={{ fontSize:13, fontWeight:700, color:"#e6edf3" }}>Shift Handovers</span>
               {handovers.length > 0 && (
                 <span style={{ fontSize:10, color:"#8b949e", background:"#21262d",
-                  padding:"1px 7px", borderRadius:99, border:`1px solid ${C.border}` }}>
+                  padding:"1px 7px", borderRadius:99, border:"1px solid #30363d" }}>
                   {handovers.length}
                 </span>
               )}
@@ -795,7 +789,7 @@ function AppInner() {
               <div key={h.id} style={{
                 padding:"14px 20px",
                 borderBottom: i < handovers.length-1 ? "1px solid #21262d" : "none",
-                background: i < unseenCount ? C.accentGlow : "transparent",
+                background: i < unseenCount ? "rgba(37,99,235,0.05)" : "transparent",
                 transition:"background .15s",
               }}>
                 {/* From / To row */}
@@ -813,7 +807,7 @@ function AppInner() {
                       {(h.from_name||"?").charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <span style={{ fontSize:12, fontWeight:600, color:C.ink }}>{h.from_name}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color:"#e6edf3" }}>{h.from_name}</span>
                       <span style={{ fontSize:11, color:"#6e7681", marginLeft:5 }}>handed over to</span>
                       <span style={{ fontSize:12, fontWeight:600, color:"#3b82f6", marginLeft:5 }}>
                         {h.handover_to}
@@ -832,8 +826,8 @@ function AppInner() {
                 {/* Handover note */}
                 <div style={{
                   fontSize:12, color:"#8b949e", lineHeight:1.6,
-                  background:C.bgAlt, borderRadius:6, padding:"10px 12px",
-                  border:`1px solid ${C.borderLight}`, marginLeft:32,
+                  background:"#0d1117", borderRadius:6, padding:"10px 12px",
+                  border:"1px solid #21262d", marginLeft:32,
                   maxHeight:"260px", overflowY:"auto",
                 }}>
                   {(h.description || "").split("\n").filter(line => line.trim()).map((line, li) => (
@@ -1589,6 +1583,37 @@ function AppInner() {
                 </div>
               </div>
 
+              {/* Dialpad Tickets */}
+              <div className="ag-card">
+                <div className="ag-card-header">
+                  <h3 style={styles.cardTitle}>Dialpad</h3>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.accentLight} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </div>
+                <div style={styles.cardBody}>
+                  <label style={styles.label}>Ticket Number</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Dialpad ticket number…"
+                    value={dialpadTicket}
+                    onChange={(e) => setDialpadTicket(e.target.value)}
+                    className="ag-input"
+                  />
+                  <label style={styles.label}>Description</label>
+                  <textarea
+                    rows="4"
+                    placeholder="Describe the Dialpad ticket or call details…"
+                    value={dialpadDesc}
+                    onChange={(e) => setDialpadDesc(e.target.value)}
+                    className="ag-input"
+                  />
+                  <button className="ag-btn-primary" onClick={handleSaveDialpad}>
+                    Save Dialpad Ticket
+                  </button>
+                </div>
+              </div>
+
               {/* Shift Handover */}
               <div className="ag-card">
                 <div className="ag-card-header">
@@ -1666,10 +1691,4 @@ function AppInner() {
   );
 }
 
-export default function App() {
-  return (
-    <ThemeProvider>
-      <AppInner />
-    </ThemeProvider>
-  );
-}
+export default App;

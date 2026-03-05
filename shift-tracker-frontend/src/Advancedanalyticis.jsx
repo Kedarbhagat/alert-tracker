@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useTheme, buildGlobalCSS } from "./styles";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    ADVANCED ANALYTICS — Enterprise Dark Dashboard
@@ -7,7 +6,58 @@ import { useTheme, buildGlobalCSS } from "./styles";
    Props: { data, loading, error, onRefresh }
 ───────────────────────────────────────────────────────────────────────────── */
 
+const C = {
+  bg:            "#0d1117",
+  bgAlt:         "#161b22",
+  surface:       "#161b22",
+  surfaceRaised: "#1c2230",
+  surfaceBorder: "#21262d",
+  border:        "#30363d",
+  borderLight:   "#21262d",
+  ink:           "#e6edf3",
+  inkMid:        "#8b949e",
+  inkLight:      "#6e7681",
+  inkFaint:      "#30363d",
+  accent:        "#2563eb",
+  accentLight:   "#3b82f6",
+  accentFaint:   "rgba(37,99,235,0.12)",
+  accentBorder:  "rgba(37,99,235,0.35)",
+  green:         "#238636",
+  greenFaint:    "rgba(35,134,54,0.15)",
+  greenText:     "#3fb950",
+  red:           "#da3633",
+  redFaint:      "rgba(218,54,51,0.12)",
+  redText:       "#f85149",
+  redBorder:     "rgba(218,54,51,0.3)",
+  amber:         "#9e6a03",
+  amberFaint:    "rgba(158,106,3,0.15)",
+  amberText:     "#d29922",
+  amberBorder:   "rgba(158,106,3,0.3)",
+  indigo:        "#6366f1",
+  indigoFaint:   "rgba(99,102,241,0.12)",
+  indigoBorder:  "rgba(99,102,241,0.3)",
+};
+
 const PALETTE = ["#3b82f6","#6366f1","#3fb950","#f85149","#d29922","#a78bfa","#22d3ee","#fb923c"];
+
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @keyframes aa-rise  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes aa-spin  { to { transform: rotate(360deg); } }
+  @keyframes aa-pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  @keyframes aa-draw  { from { stroke-dashoffset: var(--len,1000); } to { stroke-dashoffset: 0; } }
+  *, *::before, *::after { box-sizing: border-box; }
+  .aa-card { background:#161b22; border:1px solid #30363d; border-radius:10px; transition:border-color .18s; }
+  .aa-card:hover { border-color:rgba(59,130,246,0.35); }
+  .aa-btn { background:#2563eb; border:none; color:#fff; border-radius:6px; padding:7px 18px; font-family:'Inter',sans-serif; font-size:12px; font-weight:500; cursor:pointer; transition:background .15s; }
+  .aa-btn:hover { background:#1d4ed8; }
+  .aa-btn-ghost { background:transparent; border:1px solid #30363d; color:#8b949e; border-radius:6px; padding:7px 18px; font-family:'Inter',sans-serif; font-size:12px; font-weight:500; cursor:pointer; transition:all .15s; }
+  .aa-btn-ghost:hover { border-color:#3b82f6; color:#3b82f6; }
+  .aa-thead th { padding:10px 14px; font-size:10px; font-family:'Inter',sans-serif; text-transform:uppercase; letter-spacing:.1em; color:#6e7681; background:#21262d; border-bottom:1px solid #30363d; text-align:left; font-weight:600; }
+  .aa-tbody tr { border-bottom:1px solid #21262d; transition:background .1s; cursor:pointer; }
+  .aa-tbody tr:hover { background:#1c2230; }
+  .aa-tbody td { padding:10px 14px; font-size:13px; font-family:'Inter',sans-serif; color:#e6edf3; }
+`;
 
 function useAnimated(target, duration = 900) {
   const [val, setVal] = useState(0);
@@ -371,10 +421,11 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
   const alertTrend    = agent.alert_trend    || [];
   const incidentTrend = agent.incident_trend || [];
   const adhocTrend    = agent.adhoc_trend    || [];
+  const dialpadTrend  = agent.dialpad_trend  || [];
 
-  const allDates = [...new Set([...ticketTrend,...alertTrend,...incidentTrend,...adhocTrend].map(d=>d.date).filter(Boolean))].sort();
+  const allDates = [...new Set([...ticketTrend,...alertTrend,...incidentTrend,...adhocTrend,...dialpadTrend].map(d=>d.date).filter(Boolean))].sort();
   const makeVals = (arr) => allDates.map(d => { const f=arr.find(x=>x.date===d); return f?Number(f.count)||0:0; });
-  const tVals=makeVals(ticketTrend), aVals=makeVals(alertTrend), iVals=makeVals(incidentTrend), hVals=makeVals(adhocTrend);
+  const tVals=makeVals(ticketTrend), aVals=makeVals(alertTrend), iVals=makeVals(incidentTrend), hVals=makeVals(adhocTrend), dVals=makeVals(dialpadTrend);
   const shortDates = allDates.map(d=>d?.slice(5)||"");
 
   const topAlerts   = (agent.alert_breakdown  ||[]).slice(0,6);
@@ -384,10 +435,11 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
   const kpis = [
     { label:"Shifts",        value:agent.shift_count      || 0, color:C.accentLight },
     { label:"Triaged",       value:agent.total_triaged    || 0, color:C.greenText   },
-    { label:"Tickets",       value:agent.total_tickets    || 0, color:C.amberText   },
+    { label:"HIP Tickets",   value:agent.total_tickets    || 0, color:C.amberText   },
     { label:"Alerts",        value:agent.total_alerts     || 0, color:C.redText     },
     { label:"Incidents",     value:agent.total_incidents  || 0, color:"#a78bfa"     },
     { label:"Ad-hoc",        value:agent.total_adhoc      || 0, color:C.inkMid      },
+    { label:"Dialpad",       value:agent.total_dialpad    || 0, color:C.accentLight },
     { label:"Avg Triaged/Shift", value:agent.avg_triaged_per_shift != null ? agent.avg_triaged_per_shift : "—", color:C.ink },
     { label:"Avg Shift hrs",     value:agent.avg_shift_hours       != null ? agent.avg_shift_hours       : "—", color:C.ink },
   ];
@@ -484,7 +536,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
         </div>
 
         {/* KPI grid */}
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(130px, 1fr))",gap:10 }}>
           {kpis.map(k=>(
             <div key={k.label} style={{ background:C.bgAlt,border:`1px solid ${C.borderLight}`,borderRadius:8,padding:"12px 14px" }}>
               <div style={{ fontSize:22,fontWeight:700,color:k.color,fontFamily:"'Inter',sans-serif",letterSpacing:"-0.03em" }}>
@@ -500,7 +552,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
           <div>
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Activity Over Time</div>
             <div style={{ display:"flex",gap:16,marginBottom:10,flexWrap:"wrap" }}>
-              {[{label:"Tickets",color:C.amberText},{label:"Alerts",color:C.redText},{label:"Incidents",color:"#a78bfa"},{label:"Ad-hoc",color:C.inkMid}].map(l=>(
+              {[{label:"HIP Tickets",color:C.amberText},{label:"Alerts",color:C.redText},{label:"Incidents",color:"#a78bfa"},{label:"Ad-hoc",color:C.inkMid},{label:"Dialpad",color:C.accentLight}].map(l=>(
                 <div key={l.label} style={{ display:"flex",alignItems:"center",gap:5 }}>
                   <div style={{ width:16,height:2,background:l.color,borderRadius:2 }} />
                   <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
@@ -509,10 +561,11 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
             </div>
             <LineAreaChart
               datasets={[
-                {name:"Tickets",  values:tVals,color:C.amberText},
-                {name:"Alerts",   values:aVals,color:C.redText},
-                {name:"Incidents",values:iVals,color:"#a78bfa"},
-                {name:"Ad-hoc",   values:hVals,color:C.inkMid},
+                {name:"HIP Tickets", values:tVals,color:C.amberText},
+                {name:"Alerts",      values:aVals,color:C.redText},
+                {name:"Incidents",   values:iVals,color:"#a78bfa"},
+                {name:"Ad-hoc",      values:hVals,color:C.inkMid},
+                {name:"Dialpad",     values:dVals,color:C.accentLight},
               ]}
               labels={shortDates}
               height={155}
@@ -546,7 +599,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Recent Shifts</div>
             <table style={{ width:"100%",borderCollapse:"collapse" }}>
               <thead className="aa-thead">
-                <tr><th>Date</th><th>Duration</th><th>Triaged</th><th>Tickets</th><th>Alerts</th><th>Incidents</th><th>Ad-hoc</th></tr>
+                <tr><th>Date</th><th>Duration</th><th>Triaged</th><th>Tickets</th><th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th></tr>
               </thead>
               <tbody className="aa-tbody">
                 {recentShifts.map((s,i)=>(
@@ -558,6 +611,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
                     <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                     <td style={{ color:"#a78bfa" }}>{s.incident_count??0}</td>
                     <td style={{ color:C.inkMid }}>{s.adhoc_count??0}</td>
+                    <td style={{ color:C.accentLight }}>{s.dialpad_count??0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -582,8 +636,6 @@ function toISODate(d) { return d.toISOString().slice(0, 10); }
 /* ═══════════════════════════════════════════════ MAIN ══ */
 export default function AdvancedAnalytics({ data, loading, error, onRefresh, api = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net"
 }) {
-  const { C, isDark } = useTheme();
-  const GLOBAL_CSS = buildGlobalCSS(C);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -704,6 +756,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
     shift_duration_stats = {},
     incident_pattern     = [],
     ticket_volume        = [],
+    dialpad_volume       = [],
     agent_consistency    = [],
     peak_hour            = null,
     insights             = [],
@@ -717,6 +770,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const totalAlerts    = alert_analysis.reduce((s,a)=>s+(Number(a.count)||0),0);
   const totalTickets   = ticket_volume.reduce((s,t)=>s+(Number(t.count)||0),0);
   const totalIncidents = incident_pattern.reduce((s,i)=>s+(Number(i.count)||0),0);
+  const totalDialpad   = dialpad_volume.reduce((s,d)=>s+(Number(d.count)||0),0);
 
   /* ── Performance trend ── */
   const trendLabels = performance_trends.map(d=>d.date?.slice(5)||"");
@@ -724,14 +778,15 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const shiftsVals  = performance_trends.map(d=>Number(d.shifts)||0);
   const agentsVals  = performance_trends.map(d=>Number(d.agents)||0);
 
-  /* ── Volume trend (tickets + incidents merged) ── */
-  const volDates = [...new Set([...ticket_volume,...incident_pattern].map(d=>d.date).filter(Boolean))].sort();
-  const tickVals = volDates.map(d=>{const f=ticket_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
-  const incVals  = volDates.map(d=>{const f=incident_pattern.find(x=>x.date===d);return f?Number(f.count)||0:0;});
+  /* ── Volume trend (tickets + incidents + dialpad merged) ── */
+  const volDates = [...new Set([...ticket_volume,...incident_pattern,...dialpad_volume].map(d=>d.date).filter(Boolean))].sort();
+  const tickVals   = volDates.map(d=>{const f=ticket_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
+  const incVals    = volDates.map(d=>{const f=incident_pattern.find(x=>x.date===d);return f?Number(f.count)||0:0;});
+  const dialpadVals= volDates.map(d=>{const f=dialpad_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
 
   /* ── Donuts ── */
   const alertDonut = alert_analysis.slice(0,8).map(a=>({label:a.alert_type||"Unknown",value:Number(a.count)||0}));
-  const volDonut   = [{label:"Tickets",value:totalTickets,color:C.amberText},{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText}].filter(d=>d.value>0);
+  const volDonut   = [{label:"Tickets",value:totalTickets,color:C.amberText},{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText},{label:"Dialpad",value:totalDialpad,color:C.accentLight}].filter(d=>d.value>0);
 
   /* ── Agent table ── */
   const agentTable = agent_rankings.map(a => {
@@ -851,8 +906,9 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
             <KpiCard value={totalTriaged}   label="Cases Triaged"   color={C.greenText}   delay={0.05} />
             <KpiCard value={peakAgents}     label="Peak Agents/Day" color={C.indigo}      delay={0.1}  />
             <KpiCard value={totalAlerts}    label="Total Alerts"    color={C.redText}     delay={0.15} />
-            <KpiCard value={totalTickets}   label="Tickets"         color={C.amberText}   delay={0.2}  />
+            <KpiCard value={totalTickets}   label="HIP Tickets"     color={C.amberText}   delay={0.2}  />
             <KpiCard value={totalIncidents} label="Incidents"       color="#a78bfa"       delay={0.25} />
+            <KpiCard value={totalDialpad}   label="Dialpad Tickets" color={C.accentLight} delay={0.3}  />
           </div>
         </Section>
 
@@ -885,9 +941,9 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
         <Section title="Volume Trends" sub="Daily ticket and incident counts" accentColor={C.amberText} delay={0.15}>
           <Grid cols={2} gap={16}>
             <Panel>
-              <PanelTitle>Tickets vs Incidents — Daily</PanelTitle>
+              <PanelTitle>Tickets vs Incidents vs Dialpad — Daily</PanelTitle>
               <div style={{ display:"flex",gap:16,marginBottom:10 }}>
-                {[{label:"Tickets",color:C.amberText},{label:"Incidents",color:"#a78bfa"}].map(l=>(
+                {[{label:"HIP Tickets",color:C.amberText},{label:"Incidents",color:"#a78bfa"},{label:"Dialpad",color:C.accentLight}].map(l=>(
                   <div key={l.label} style={{ display:"flex",alignItems:"center",gap:5 }}>
                     <div style={{ width:14,height:2,background:l.color,borderRadius:2 }} />
                     <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
@@ -897,8 +953,9 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
               {volDates.length>0
                 ? <LineAreaChart
                     datasets={[
-                      {name:"Tickets",  values:tickVals,color:C.amberText},
-                      {name:"Incidents",values:incVals, color:"#a78bfa"},
+                      {name:"HIP Tickets", values:tickVals,   color:C.amberText},
+                      {name:"Incidents",   values:incVals,    color:"#a78bfa"},
+                      {name:"Dialpad",     values:dialpadVals,color:C.accentLight},
                     ]}
                     labels={volDates.map(d=>d?.slice(5)||"")}
                     height={180}
@@ -972,8 +1029,8 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                   <table style={{ width:"100%",borderCollapse:"collapse" }}>
                     <thead className="aa-thead">
                       <tr>
-                        <th>Agent</th><th>Shifts</th><th>Triaged</th><th>Tickets</th>
-                        <th>Alerts</th><th>Incidents</th><th>Ad-hoc</th>
+                        <th>Agent</th><th>Shifts</th><th>Triaged</th><th>HIP Tickets</th>
+                        <th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th>
                       </tr>
                     </thead>
                     <tbody className="aa-tbody">
@@ -996,6 +1053,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                             <td style={{ color:C.redText }}>{a.total_alerts??   "—"}</td>
                             <td style={{ color:"#a78bfa" }}>{a.total_incidents??"—"}</td>
                             <td style={{ color:C.inkMid }}>{a.total_adhoc??     "—"}</td>
+                            <td style={{ color:C.accentLight }}>{a.total_dialpad?? "—"}</td>
                           </tr>
                         );
                       })}

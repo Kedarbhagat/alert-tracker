@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useTheme, buildGlobalCSS } from "./styles";
 
 /**
  * UserManagement — standalone component for the Manager Dashboard.

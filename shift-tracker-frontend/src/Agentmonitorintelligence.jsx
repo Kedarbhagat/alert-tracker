@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useTheme, buildGlobalCSS } from "./styles";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    AGENT · MONITOR · INTELLIGENCE
@@ -7,9 +6,40 @@ import { useTheme, buildGlobalCSS } from "./styles";
    Alerts are grouped by monitor and show exact submission timestamps.
 ───────────────────────────────────────────────────────────────────────────── */
 
+const C = {
+  bg:           "#0d1117",
+  bgAlt:        "#161b22",
+  surface:      "#161b22",
+  raised:       "#1c2230",
+  border:       "#30363d",
+  borderLight:  "#21262d",
+  ink:          "#e6edf3",
+  inkMid:       "#8b949e",
+  inkLight:     "#6e7681",
+  accent:       "#2563eb",
+  accentLight:  "#3b82f6",
+  accentBorder: "rgba(37,99,235,0.3)",
+  greenText:    "#3fb950",
+  greenFaint:   "rgba(35,134,54,0.15)",
+  greenBorder:  "rgba(35,134,54,0.3)",
+  red:          "#da3633",
+  redText:      "#f85149",
+  redFaint:     "rgba(218,54,51,0.12)",
+  redBorder:    "rgba(218,54,51,0.3)",
+  amberText:    "#d29922",
+  amberFaint:   "rgba(158,106,3,0.15)",
+  amberBorder:  "rgba(158,106,3,0.3)",
+  indigo:       "#6366f1",
+  indigoFaint:  "rgba(99,102,241,0.12)",
+  indigoBorder: "rgba(99,102,241,0.3)",
+  purple:       "#a78bfa",
+  purpleFaint:  "rgba(167,139,250,0.15)",
+  purpleBorder: "rgba(167,139,250,0.3)",
+};
+
 const PALETTE = ["#3b82f6","#6366f1","#3fb950","#f85149","#d29922","#a78bfa","#22d3ee","#fb923c","#34d399","#f472b6"];
 
-const buildCSS = (C) => `
+const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
   @keyframes ami-rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
   @keyframes ami-spin { to { transform:rotate(360deg); } }
@@ -595,9 +625,10 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
             <KpiPill label="Avg / Shift"    value={data.avg_triaged_per_shift} color={C.amberText}   delay={0.08} />
             <KpiPill label="Avg Hours"      value={`${data.avg_shift_hours}h`} color={C.indigo}      delay={0.12} />
             <KpiPill label="Alerts"         value={data.total_alerts}          color={C.redText}     delay={0.16} />
-            <KpiPill label="Tickets"        value={data.total_tickets}         color={C.amberText}   delay={0.20} />
+            <KpiPill label="HIP Tickets"    value={data.total_tickets}         color={C.amberText}   delay={0.20} />
             <KpiPill label="Incidents"      value={data.total_incidents}       color={C.purple}      delay={0.24} />
             <KpiPill label="Ad-hoc Tasks"   value={data.total_adhoc}           color={C.inkMid}      delay={0.28} />
+            <KpiPill label="Dialpad"        value={data.total_dialpad}         color={C.accentLight} delay={0.32} />
           </div>
 
           {/* Sub-tabs */}
@@ -681,7 +712,7 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                     <div style={{ borderRadius:8, overflow:"hidden", border:`1px solid ${C.border}` }}>
                       <table style={{ width:"100%", borderCollapse:"collapse" }}>
                         <thead className="ami-thead">
-                          <tr>{["Date","Duration","Triaged","Tickets","Alerts","Incidents","Ad-hoc",""].map(h=><th key={h}>{h}</th>)}</tr>
+                          <tr>{["Date","Duration","Triaged","Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
                         </thead>
                         <tbody className="ami-tbody">
                           {data.recent_shifts.map((s, i) => (
@@ -693,6 +724,7 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                               <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                               <td style={{ color:C.purple }}>{s.incident_count??0}</td>
                               <td style={{ color:C.indigo }}>{s.adhoc_count??0}</td>
+                              <td style={{ color:C.accentLight }}>{s.dialpad_count??0}</td>
                               <td><button className="ami-btn" style={{ padding:"4px 10px", fontSize:11 }}>Drill In</button></td>
                             </tr>
                           ))}
@@ -811,8 +843,6 @@ function MonitorIntelligenceView({ api, days, refreshKey = 0 }) {
    Props: { api }  e.g. "http://192.168.74.152:5000"
 ══════════════════════════════════════════════════════════════════════════ */
 export default function AgentMonitorIntelligence({ api }) {
-  const { C, isDark } = useTheme();
-  const GLOBAL_CSS = buildGlobalCSS(C);
   const [view, setView]                   = useState("agents");
   const [agents, setAgents]               = useState([]);
   const [agLoading, setAgLoading]         = useState(true);
@@ -853,7 +883,7 @@ export default function AgentMonitorIntelligence({ api }) {
   if (view === "agent-detail" && selectedAgent) {
     return (
       <div>
-        <style>{GLOBAL_CSS + CSS}</style>
+        <style>{CSS}</style>
         <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 24px", display:"flex", overflowX:"auto" }}>
           {VIEWS.map(v => (
             <button key={v.id} className={`ami-tab${v.id==="agents"?" ami-tab-active":""}`} onClick={() => { setView(v.id); setSelectedAgent(null); }}>
@@ -870,7 +900,7 @@ export default function AgentMonitorIntelligence({ api }) {
 
   return (
     <div>
-      <style>{GLOBAL_CSS + CSS}</style>
+      <style>{CSS}</style>
 
       {/* Top bar */}
       <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 24px", display:"flex", alignItems:"center", overflowX:"auto" }}>
@@ -931,6 +961,7 @@ export default function AgentMonitorIntelligence({ api }) {
                             { label:"Alerts",    value:agent.total_alerts,    color:C.redText   },
                             { label:"Tickets",   value:agent.total_tickets,   color:C.amberText },
                             { label:"Incidents", value:agent.total_incidents, color:C.purple    },
+                            { label:"Dialpad",   value:agent.total_dialpad,   color:C.accentLight },
                           ].map(s => (
                             <div key={s.label} style={{ textAlign:"center", padding:"8px 4px", background:C.raised, borderRadius:6 }}>
                               <div style={{ fontSize:18, fontWeight:700, color:s.color, fontFamily:"'Inter',sans-serif", lineHeight:1 }}>{s.value??0}</div>
@@ -952,7 +983,7 @@ export default function AgentMonitorIntelligence({ api }) {
                 <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${C.border}` }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead className="ami-thead">
-                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","Tickets","Incidents","Ad-hoc",""].map(h=><th key={h}>{h}</th>)}</tr>
+                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","HIP Tickets","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody className="ami-tbody">
                       {filtered.map((a, i) => {
@@ -974,6 +1005,7 @@ export default function AgentMonitorIntelligence({ api }) {
                             <td style={{ color:C.amberText }}>{a.total_tickets}</td>
                             <td style={{ color:C.purple }}>{a.total_incidents}</td>
                             <td style={{ color:C.indigo }}>{a.total_adhoc}</td>
+                            <td style={{ color:C.accentLight }}>{a.total_dialpad??0}</td>
                             <td>
                               <button className="ami-btn" style={{ fontSize:11, padding:"5px 10px" }} onClick={() => { setSelectedAgent(a); setView("agent-detail"); }}>
                                 Detail
