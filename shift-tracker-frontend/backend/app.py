@@ -372,53 +372,6 @@ def add_adhoc():
     finally:
         if conn:
             return_connection(conn)
-@app.route("/add-dialpad", methods=["POST", "OPTIONS"])
-def add_dialpad():
-    if request.method == "OPTIONS":
-        return "", 200
-    conn = None
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        shift_id    = data.get("shift_id")
-        ticket_number = data.get("ticket_number")
-        description = data.get("description", "")
-
-        if not all([shift_id, ticket_number]):
-            return jsonify({"error": "shift_id and ticket_number are required"}), 400
-
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "Database connection failed"}), 500
-
-        cur = conn.cursor()
-        # Create table if not exists
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS dialpad_tickets (
-                id SERIAL PRIMARY KEY,
-                shift_id UUID REFERENCES shifts(id),
-                ticket_number VARCHAR(100) NOT NULL,
-                description TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        cur.execute("""
-            INSERT INTO dialpad_tickets (shift_id, ticket_number, description)
-            VALUES (%s, %s, %s);
-        """, (shift_id, ticket_number, description))
-        conn.commit()
-        cur.close()
-        return jsonify({"message": "Dialpad ticket added successfully"})
-    except Exception as e:
-        print(f"❌ Error in add_dialpad: {e}")
-        if conn:
-            conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if conn:
-            return_connection(conn)
 
 @app.route("/add-handover", methods=["POST", "OPTIONS"])
 def add_handover():
@@ -640,20 +593,6 @@ def get_shift_summary(shift_id):
             }
             for m in cur.fetchall()
         ]
-
-        # Get dialpad tickets
-        cur.execute("""
-            SELECT ticket_number, description, created_at
-            FROM dialpad_tickets WHERE shift_id = %s ORDER BY created_at;
-        """, (shift_id,))
-        dialpad_tickets = [
-            {
-                "ticket_number": d[0],
-                "description": d[1],
-                "created_at": format_ist_datetime(d[2])
-            }
-            for d in cur.fetchall()
-        ]
         
         cur.close()
         
@@ -668,14 +607,12 @@ def get_shift_summary(shift_id):
             "adhoc_count": len(adhoc_tasks),
             "handover_count": len(handovers),
             "maintenance_count": len(maintenance),
-            "dialpad_count": len(dialpad_tickets),
             "tickets": tickets,
             "alerts": alerts,
             "incidents": incidents,
             "adhoc_tasks": adhoc_tasks,
             "handovers": handovers,
-            "maintenance": maintenance,
-            "dialpad_tickets": dialpad_tickets
+            "maintenance": maintenance
         })
     except Exception as e:
         print(f"❌ Error in get_shift_summary: {e}")
@@ -850,13 +787,6 @@ def get_analytics():
             WHERE DATE(created_at) = CURRENT_DATE;
         """)
         tickets_today = cur.fetchone()[0]
-
-        # Total dialpad tickets today
-        cur.execute("""
-            SELECT COUNT(*) FROM dialpad_tickets 
-            WHERE DATE(created_at) = CURRENT_DATE;
-        """)
-        dialpad_today = cur.fetchone()[0]
         
         cur.close()
         return jsonify({
@@ -878,8 +808,7 @@ def get_analytics():
             },
             "avg_productivity": round(float(avg_productivity or 0), 2),
             "alerts_today": alerts_today or 0,
-            "tickets_today": tickets_today or 0,
-            "dialpad_today": dialpad_today or 0
+            "tickets_today": tickets_today or 0
         })
     except Exception as e:
         print(f"❌ Error in get_analytics: {e}")
@@ -1057,20 +986,6 @@ def get_shift_details(shift_id):
             }
             for m in cur.fetchall()
         ]
-
-        # Dialpad tickets
-        cur.execute("""
-            SELECT ticket_number, description, created_at
-            FROM dialpad_tickets WHERE shift_id = %s ORDER BY created_at;
-        """, (shift_id,))
-        dialpad_tickets = [
-            {
-                "ticket_number": d[0],
-                "description": d[1],
-                "created_at": format_ist_datetime(d[2])
-            }
-            for d in cur.fetchall()
-        ]
         
         cur.close()
         return jsonify({
@@ -1084,8 +999,7 @@ def get_shift_details(shift_id):
             "incidents": incidents,
             "adhoc_tasks": adhoc_tasks,
             "handovers": handovers,
-            "maintenance": maintenance,
-            "dialpad_tickets": dialpad_tickets
+            "maintenance": maintenance
         })
     except Exception as e:
         print(f"❌ Error in get_shift_details: {e}")
@@ -1152,7 +1066,7 @@ def get_advanced_analytics():
             for p in cur.fetchall()
         ]
         
-        # Agent Rankings (with ticket, alert, incident, adhoc, dialpad counts)
+        # Agent Rankings (with ticket, alert, incident, adhoc counts)
         cur.execute("""
             SELECT s.agent_id,
                    COALESCE(ag.name, 'Unknown Agent') as agent_name,
@@ -1165,14 +1079,12 @@ def get_advanced_analytics():
                    COUNT(DISTINCT i.id) as total_incidents,
                    COUNT(DISTINCT ad.id) as total_adhoc,
                    COALESCE(AVG(s.triaged_count), 0) as avg_triaged_per_shift,
-                   COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600), 0) as avg_shift_hours,
-                   COUNT(DISTINCT dp.id) as total_dialpad
+                   COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600), 0) as avg_shift_hours
             FROM shifts s
             LEFT JOIN tickets t ON t.shift_id = s.id
             LEFT JOIN alerts a ON a.shift_id = s.id
             LEFT JOIN incident_status i ON i.shift_id = s.id
             LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
-            LEFT JOIN dialpad_tickets dp ON dp.shift_id = s.id
             LEFT JOIN agents ag ON s.agent_id = ag.id
             WHERE s.login_time >= %s AND s.login_time <= %s
             GROUP BY s.agent_id, ag.name
@@ -1193,8 +1105,7 @@ def get_advanced_analytics():
                 "total_incidents": int(r[8] or 0),
                 "total_adhoc": int(r[9] or 0),
                 "avg_triaged_per_shift": round(float(r[10] or 0), 2),
-                "avg_shift_hours": round(float(r[11] or 0), 2),
-                "total_dialpad": int(r[12] or 0)
+                "avg_shift_hours": round(float(r[11] or 0), 2)
             }
             for idx, r in enumerate(cur.fetchall())
         ]
@@ -1360,23 +1271,6 @@ def get_advanced_analytics():
             }
             for t in cur.fetchall()
         ]
-
-        # Dialpad Volume
-        cur.execute("""
-            SELECT DATE(created_at) as date,
-                   COUNT(*) as dialpad_count
-            FROM dialpad_tickets
-            WHERE created_at >= %s AND created_at <= %s
-            GROUP BY DATE(created_at)
-            ORDER BY date;
-        """, (date_from, date_to_inclusive))
-        dialpad_volume = [
-            {
-                "date": str(d[0]),
-                "count": d[1]
-            }
-            for d in cur.fetchall()
-        ]
         
         # Agent Consistency
         cur.execute("""
@@ -1492,7 +1386,6 @@ def get_advanced_analytics():
             "productivity_stats": productivity_stats,
             "incident_pattern": incident_pattern,
             "ticket_volume": ticket_volume,
-            "dialpad_volume": dialpad_volume,
             "agent_consistency": agent_consistency,
             "peak_hour": peak_hour,
             "coverage_analysis": coverage_analysis,
@@ -1592,26 +1485,16 @@ def get_agent_detail(agent_id):
         adhoc_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
 
         cur.execute("""
-            SELECT DATE(dp.created_at), COUNT(*) FROM dialpad_tickets dp
-            JOIN shifts s ON s.id = dp.shift_id
-            WHERE s.agent_id = %s AND dp.created_at >= %s AND dp.created_at <= %s
-            GROUP BY DATE(dp.created_at) ORDER BY 1;
-        """, (agent_id, date_from, date_to_inclusive))
-        dialpad_trend = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
-
-        cur.execute("""
             SELECT s.id, DATE(s.login_time),
                    EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600,
                    s.triaged_count,
                    COUNT(DISTINCT t.id), COUNT(DISTINCT a.id),
-                   COUNT(DISTINCT i.id), COUNT(DISTINCT ad.id),
-                   COUNT(DISTINCT dp.id)
+                   COUNT(DISTINCT i.id), COUNT(DISTINCT ad.id)
             FROM shifts s
             LEFT JOIN tickets t ON t.shift_id = s.id
             LEFT JOIN alerts a ON a.shift_id = s.id
             LEFT JOIN incident_status i ON i.shift_id = s.id
             LEFT JOIN adhoc_tasks ad ON ad.shift_id = s.id
-            LEFT JOIN dialpad_tickets dp ON dp.shift_id = s.id
             WHERE s.agent_id = %s AND s.login_time >= %s AND s.login_time <= %s
             GROUP BY s.id, s.login_time, s.logout_time, s.triaged_count
             ORDER BY s.login_time DESC LIMIT 10;
@@ -1621,8 +1504,7 @@ def get_agent_detail(agent_id):
              "duration_hours": round(float(r[2] or 0), 2),
              "triaged_count": r[3] or 0,
              "ticket_count": int(r[4] or 0), "alert_count": int(r[5] or 0),
-             "incident_count": int(r[6] or 0), "adhoc_count": int(r[7] or 0),
-             "dialpad_count": int(r[8] or 0)}
+             "incident_count": int(r[6] or 0), "adhoc_count": int(r[7] or 0)}
             for r in cur.fetchall()
         ]
 
@@ -1636,14 +1518,12 @@ def get_agent_detail(agent_id):
                 COUNT(DISTINCT i.id)                                                              AS total_incidents,
                 COUNT(DISTINCT ad.id)                                                             AS total_adhoc,
                 COALESCE(AVG(s.triaged_count), 0)                                                AS avg_triaged_per_shift,
-                COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600), 0) AS avg_shift_hours,
-                COUNT(DISTINCT dp.id)                                                             AS total_dialpad
+                COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time, NOW()) - s.login_time))/3600), 0) AS avg_shift_hours
             FROM shifts s
             LEFT JOIN tickets        t  ON t.shift_id  = s.id
             LEFT JOIN alerts         a  ON a.shift_id  = s.id
             LEFT JOIN incident_status i ON i.shift_id  = s.id
             LEFT JOIN adhoc_tasks    ad ON ad.shift_id = s.id
-            LEFT JOIN dialpad_tickets dp ON dp.shift_id = s.id
             WHERE s.agent_id = %s AND s.login_time >= %s AND s.login_time <= %s;
         """, (agent_id, date_from, date_to_inclusive))
         kpi_row = cur.fetchone()
@@ -1660,7 +1540,6 @@ def get_agent_detail(agent_id):
             "total_adhoc":          int(kpi_row[5] or 0),
             "avg_triaged_per_shift": round(float(kpi_row[6] or 0), 2),
             "avg_shift_hours":       round(float(kpi_row[7] or 0), 2),
-            "total_dialpad":        int(kpi_row[8] or 0),
             # Trend / breakdown data
             "alert_breakdown":  alert_breakdown,
             "monitor_breakdown": monitor_breakdown,
@@ -1668,7 +1547,6 @@ def get_agent_detail(agent_id):
             "alert_trend":      alert_trend,
             "incident_trend":   incident_trend,
             "adhoc_trend":      adhoc_trend,
-            "dialpad_trend":    dialpad_trend,
             "recent_shifts":    recent_shifts,
         })
     except Exception as e:

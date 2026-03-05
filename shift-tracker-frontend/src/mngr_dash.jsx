@@ -314,30 +314,6 @@ function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate
                 </div>
               )}
 
-              {/* Dialpad Tickets */}
-              {shiftDetails.dialpad_tickets?.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <SubLabel>Dialpad Tickets ({shiftDetails.dialpad_tickets.length})</SubLabel>
-                  {shiftDetails.dialpad_tickets.map((dp, i) => (
-                    <ModalItem key={i} accentColor={C.accentLight}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{
-                          fontFamily: "'JetBrains Mono',monospace",
-                          fontSize: 12, color: C.accentLight, fontWeight: 600,
-                        }}>
-                          #{dp.ticket_number}
-                        </span>
-                        {dp.description && (
-                          <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: C.inkMid }}>
-                            {dp.description}
-                          </span>
-                        )}
-                      </div>
-                    </ModalItem>
-                  ))}
-                </div>
-              )}
-
               {/* Shift Handovers */}
               {shiftDetails.handovers?.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
@@ -361,8 +337,7 @@ function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate
                !shiftDetails.incidents?.length &&
                !shiftDetails.adhoc_tasks?.length &&
                !shiftDetails.handovers?.length &&
-               !shiftDetails.maintenance?.length &&
-               !shiftDetails.dialpad_tickets?.length && (
+               !shiftDetails.maintenance?.length && (
                 <EmptyState message="No activity recorded for this shift" />
               )}
             </>
@@ -765,7 +740,6 @@ function ManagerDashboard() {
                   <KpiCard label="Avg Cases / hr" value={analytics.avg_productivity        ?? 0} color={C.amberText}   delay={0.15} />
                   <KpiCard label="Alerts Today"   value={analytics.alerts_today            ?? 0} color={C.redText}     delay={0.20} />
                   <KpiCard label="Tickets Today"  value={analytics.tickets_today           ?? 0} color={C.amberText}   delay={0.25} />
-                  <KpiCard label="Dialpad Today"  value={analytics.dialpad_today           ?? 0} color={C.accentLight} delay={0.30} />
                 </div>
 
                 {/* This week */}

@@ -595,10 +595,9 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
             <KpiPill label="Avg / Shift"    value={data.avg_triaged_per_shift} color={C.amberText}   delay={0.08} />
             <KpiPill label="Avg Hours"      value={`${data.avg_shift_hours}h`} color={C.indigo}      delay={0.12} />
             <KpiPill label="Alerts"         value={data.total_alerts}          color={C.redText}     delay={0.16} />
-            <KpiPill label="HIP Tickets"    value={data.total_tickets}         color={C.amberText}   delay={0.20} />
+            <KpiPill label="Tickets"        value={data.total_tickets}         color={C.amberText}   delay={0.20} />
             <KpiPill label="Incidents"      value={data.total_incidents}       color={C.purple}      delay={0.24} />
             <KpiPill label="Ad-hoc Tasks"   value={data.total_adhoc}           color={C.inkMid}      delay={0.28} />
-            <KpiPill label="Dialpad"        value={data.total_dialpad}         color={C.accentLight} delay={0.32} />
           </div>
 
           {/* Sub-tabs */}
@@ -682,7 +681,7 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                     <div style={{ borderRadius:8, overflow:"hidden", border:`1px solid ${C.border}` }}>
                       <table style={{ width:"100%", borderCollapse:"collapse" }}>
                         <thead className="ami-thead">
-                          <tr>{["Date","Duration","Triaged","Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
+                          <tr>{["Date","Duration","Triaged","Tickets","Alerts","Incidents","Ad-hoc",""].map(h=><th key={h}>{h}</th>)}</tr>
                         </thead>
                         <tbody className="ami-tbody">
                           {data.recent_shifts.map((s, i) => (
@@ -694,7 +693,6 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                               <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                               <td style={{ color:C.purple }}>{s.incident_count??0}</td>
                               <td style={{ color:C.indigo }}>{s.adhoc_count??0}</td>
-                              <td style={{ color:C.accentLight }}>{s.dialpad_count??0}</td>
                               <td><button className="ami-btn" style={{ padding:"4px 10px", fontSize:11 }}>Drill In</button></td>
                             </tr>
                           ))}
@@ -933,7 +931,6 @@ export default function AgentMonitorIntelligence({ api }) {
                             { label:"Alerts",    value:agent.total_alerts,    color:C.redText   },
                             { label:"Tickets",   value:agent.total_tickets,   color:C.amberText },
                             { label:"Incidents", value:agent.total_incidents, color:C.purple    },
-                            { label:"Dialpad",   value:agent.total_dialpad,   color:C.accentLight },
                           ].map(s => (
                             <div key={s.label} style={{ textAlign:"center", padding:"8px 4px", background:C.raised, borderRadius:6 }}>
                               <div style={{ fontSize:18, fontWeight:700, color:s.color, fontFamily:"'Inter',sans-serif", lineHeight:1 }}>{s.value??0}</div>
@@ -955,7 +952,7 @@ export default function AgentMonitorIntelligence({ api }) {
                 <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${C.border}` }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead className="ami-thead">
-                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","HIP Tickets","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
+                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","Tickets","Incidents","Ad-hoc",""].map(h=><th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody className="ami-tbody">
                       {filtered.map((a, i) => {
@@ -977,7 +974,6 @@ export default function AgentMonitorIntelligence({ api }) {
                             <td style={{ color:C.amberText }}>{a.total_tickets}</td>
                             <td style={{ color:C.purple }}>{a.total_incidents}</td>
                             <td style={{ color:C.indigo }}>{a.total_adhoc}</td>
-                            <td style={{ color:C.accentLight }}>{a.total_dialpad??0}</td>
                             <td>
                               <button className="ami-btn" style={{ fontSize:11, padding:"5px 10px" }} onClick={() => { setSelectedAgent(a); setView("agent-detail"); }}>
                                 Detail
