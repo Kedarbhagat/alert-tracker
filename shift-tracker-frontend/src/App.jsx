@@ -155,6 +155,7 @@ function App() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId]             = useState(null);
   const [triagedCount, setTriagedCount]   = useState(0);
+  const [zdDoneCount,   setZdDoneCount]     = useState(0); // tickets handled (from Zendesk)
   const [showManager, setShowManager]     = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [managerPassword, setManagerPassword]     = useState("");
@@ -166,8 +167,7 @@ function App() {
   const [zdError, setZdError]             = useState(null);
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
-  const zdBaselineDone                    = useRef(null); // done count at shift start (null = not set yet)
-  const shiftIdRef                          = useRef(null); // always-current shiftId for closures
+  const zdPrevIds                         = useRef({});
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -226,12 +226,6 @@ function App() {
 
   // ── Triage debounce ──────────────────────────────────────────────────────
   const triageUpdating = useRef(false);
-  useEffect(() => {
-    shiftIdRef.current = shiftId;
-    if (!shiftId) {
-      zdBaselineDone.current = null; // reset when shift ends
-    }
-  }, [shiftId]);
 
   const fetchHandovers = async () => {
     setHandoversLoading(true);
@@ -381,31 +375,22 @@ function App() {
       const DONE_STATUSES = ["solved", "closed"];
       const currentDoneCount = incoming.filter(t => DONE_STATUSES.includes(t.status)).length;
 
-      // On first fetch of this shift, set the baseline (tickets already done before shift started)
+      // Set baseline on first fetch of this shift
       if (zdBaselineDone.current === null) {
         zdBaselineDone.current = currentDoneCount;
-        console.log(`[ZD] Baseline set: ${currentDoneCount} tickets already done at shift start`);
       }
 
-      // Tickets done THIS shift = current total minus baseline
+      // Tickets handled THIS shift = current total minus what was already done before shift
       const doneDuringShift = Math.max(0, currentDoneCount - zdBaselineDone.current);
-      const currentShiftId = shiftIdRef.current;
+      setZdDoneCount(doneDuringShift);
 
-      console.log(`[ZD] done now: ${currentDoneCount}, baseline: ${zdBaselineDone.current}, this shift: ${doneDuringShift}, shiftId: ${currentShiftId}`);
-
-      // Always sync the triage count to match reality
-      if (currentShiftId) {
-        fetch(`${API}/update-triage`, {
+      // Sync to DB so manager dashboard reflects it too
+      if (shiftIdRef.current) {
+        fetch(`${API}/update-zd-count`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: currentShiftId, set_count: doneDuringShift }),
-        })
-          .then(r => r.json())
-          .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
-          .catch(e => console.error("[ZD] update-triage failed:", e));
-      } else {
-        // No backend call needed, just update local state
-        setTriagedCount(doneDuringShift);
+          body: JSON.stringify({ shift_id: shiftIdRef.current, count: doneDuringShift }),
+        }).catch(() => {});
       }
 
       setZdTickets(incoming);
@@ -595,6 +580,7 @@ function App() {
     setPendingAgent(null);
     setShiftId(null);
     setTriagedCount(0);
+    setZdDoneCount(0);
     setZdTickets([]);
     setIncidentStatus("");
     setAdhocTask("");
@@ -1443,6 +1429,27 @@ function App() {
                       <line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                   </button>
+                </div>
+              </div>
+
+              {/* Tickets Handled — from Zendesk */}
+              <div style={styles.metricCard}>
+                <div style={styles.metricHeader}>
+                  <span style={styles.metricLabel}>Tickets Handled</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="9" y1="13" x2="15" y2="13"/>
+                    <line x1="9" y1="17" x2="15" y2="17"/>
+                  </svg>
+                </div>
+                <div style={{ ...styles.counterWrapper, justifyContent: "center" }}>
+                  <span style={{ ...styles.counterValue, color: zdDoneCount > 0 ? "#4ade80" : undefined }}>
+                    {zdDoneCount}
+                  </span>
+                </div>
+                <div style={{ textAlign: "center", fontSize: 10, color: "#6e7681", marginTop: 4 }}>
+                  solved/closed this shift
                 </div>
               </div>
             </div>
