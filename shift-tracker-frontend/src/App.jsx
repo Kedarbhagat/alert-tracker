@@ -155,7 +155,7 @@ function App() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId]             = useState(null);
   const [triagedCount, setTriagedCount]   = useState(0);
-  const [zdDoneCount,   setZdDoneCount]     = useState(0); // tickets handled (from Zendesk)
+  const [zdDoneCount,   setZdDoneCount]     = useState(0);
   const [showManager, setShowManager]     = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [managerPassword, setManagerPassword]     = useState("");
@@ -167,7 +167,8 @@ function App() {
   const [zdError, setZdError]             = useState(null);
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
-  const zdPrevIds                         = useRef({});
+  const zdBaselineDone                    = useRef(null); // done count at shift start
+  const shiftIdRef                          = useRef(null); // always-current shiftId for closures
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -226,6 +227,12 @@ function App() {
 
   // ── Triage debounce ──────────────────────────────────────────────────────
   const triageUpdating = useRef(false);
+  useEffect(() => {
+    shiftIdRef.current = shiftId;
+    if (!shiftId) {
+      zdBaselineDone.current = null;
+    }
+  }, [shiftId]);
 
   const fetchHandovers = async () => {
     setHandoversLoading(true);
@@ -380,11 +387,11 @@ function App() {
         zdBaselineDone.current = currentDoneCount;
       }
 
-      // Tickets handled THIS shift = current total minus what was already done before shift
+      // Tickets handled THIS shift = current minus what was already done before shift
       const doneDuringShift = Math.max(0, currentDoneCount - zdBaselineDone.current);
       setZdDoneCount(doneDuringShift);
 
-      // Sync to DB so manager dashboard reflects it too
+      // Sync to DB
       if (shiftIdRef.current) {
         fetch(`${API}/update-zd-count`, {
           method: "POST",
@@ -1432,7 +1439,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Tickets Handled — from Zendesk */}
+              {/* Tickets Handled — Zendesk */}
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
                   <span style={styles.metricLabel}>Tickets Handled</span>
@@ -1440,7 +1447,6 @@ function App() {
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
                     <line x1="9" y1="13" x2="15" y2="13"/>
-                    <line x1="9" y1="17" x2="15" y2="17"/>
                   </svg>
                 </div>
                 <div style={{ ...styles.counterWrapper, justifyContent: "center" }}>
