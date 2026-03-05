@@ -160,8 +160,13 @@ function App() {
   const [managerPassword, setManagerPassword]     = useState("");
   const [passwordError, setPasswordError]         = useState("");
 
-  const [ticketInput, setTicketInput]     = useState("");
-  const [tickets, setTickets]             = useState([]);
+  // ── Zendesk ticket state ──────────────────────────────────────────────────
+  const [zdTickets, setZdTickets]         = useState([]);   // live tickets from Zendesk
+  const [zdLoading, setZdLoading]         = useState(false);
+  const [zdError, setZdError]             = useState(null);
+  const [zdLastFetch, setZdLastFetch]     = useState(null);
+  const zdPollRef                         = useRef(null);
+  const zdPrevIds                         = useRef({});   // {id -> status} for polling diff
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -346,31 +351,75 @@ function App() {
     }
   };
 
-  const handleAddTickets = () => {
-    if (!ticketInput.trim()) return;
-    const newTickets = ticketInput
-      .split("\n")
-      .filter((t) => t.trim() !== "")
-      .map((t) => ({ number: t, description: "" }));
-    setTickets([...tickets, ...newTickets]);
-    setTicketInput("");
+  // ── Zendesk helpers ──────────────────────────────────────────────────────
+
+  const ZD_COLOR = {
+    new:     { bg:"rgba(96,165,250,0.12)",  border:"rgba(96,165,250,0.35)",  text:"#60a5fa",  label:"New"     },
+    open:    { bg:"rgba(52,211,153,0.12)",  border:"rgba(52,211,153,0.35)",  text:"#34d399",  label:"Open"    },
+    pending: { bg:"rgba(251,191,36,0.12)",  border:"rgba(251,191,36,0.35)",  text:"#fbbf24",  label:"Pending" },
+    hold:    { bg:"rgba(192,132,252,0.12)", border:"rgba(192,132,252,0.35)", text:"#c084fc",  label:"On-Hold" },
+    solved:  { bg:"rgba(99,102,241,0.12)",  border:"rgba(99,102,241,0.35)",  text:"#818cf8",  label:"Solved — Awaiting Close"  },
+    closed:  { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#4ade80",  label:"Closed ✔ Done"  },
   };
 
-  const saveTicketsToBackend = async () => {
-    if (tickets.length === 0) return;
+  const fetchZdByAgent = async (agentName) => {
+    setZdLoading(true);
+    setZdError(null);
     try {
-      const res = await fetch(`${API}/add-tickets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shift_id: shiftId, tickets }),
-      });
+      const res = await fetch(`${API}/zendesk/tickets-by-agent?name=${encodeURIComponent(agentName)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast(`${tickets.length} ticket(s) saved successfully`);
-      setTickets([]);
-    } catch {
-      showToast("Failed to save tickets", "error");
+      const data = await res.json();
+      const incoming = data.tickets || [];
+
+      // Detect tickets newly transitioned since last poll
+      // Only "closed" = truly DONE and counts toward triage; "solved" = pending close
+      const prevStatusMap = zdPrevIds.current; // {id -> status}
+      let newlyClosedCount = 0;
+      incoming.forEach(t => {
+        const prevStatus = prevStatusMap[t.id];
+        const wasNotClosed = prevStatus !== undefined && prevStatus !== "closed";
+        const isNowClosed  = t.status === "closed";
+        if (wasNotClosed && isNowClosed) {
+          newlyClosedCount++;
+          showToast(`Ticket #${t.id} — "${t.subject}" is now Closed`, "success");
+        } else if (prevStatus !== undefined && prevStatus !== "solved" && t.status === "solved") {
+          showToast(`Ticket #${t.id} — "${t.subject}" is Solved (awaiting close)`, "info");
+        }
+      });
+
+      // Auto-increment triage count for each newly closed ticket
+      if (newlyClosedCount > 0 && shiftId) {
+        fetch(`${API}/update-triage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shift_id: shiftId, change: newlyClosedCount }),
+        })
+          .then(r => r.json())
+          .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
+          .catch(() => {});
+      }
+
+      // Save current status map for next poll diff: {id -> status}
+      const nextStatusMap = {};
+      incoming.forEach(t => { nextStatusMap[t.id] = t.status; });
+      zdPrevIds.current = nextStatusMap;
+
+      setZdTickets(incoming);
+      setZdLastFetch(new Date());
+    } catch(e) {
+      setZdError(e.message);
+    } finally {
+      setZdLoading(false);
     }
   };
+
+  // Auto-fetch on shift start, then poll every 60s
+  useEffect(() => {
+    if (!selectedAgent || !shiftId) return;
+    fetchZdByAgent(selectedAgent);
+    zdPollRef.current = setInterval(() => fetchZdByAgent(selectedAgent), 60000);
+    return () => clearInterval(zdPollRef.current);
+  }, [selectedAgent, shiftId]);
 
   const handleAddAlert = async () => {
     if (!selectedMonitor || !selectedAlert) {
@@ -542,8 +591,7 @@ function App() {
     setPendingAgent(null);
     setShiftId(null);
     setTriagedCount(0);
-    setTickets([]);
-    setTicketInput("");
+    setZdTickets([]);
     setIncidentStatus("");
     setAdhocTask("");
     setHandoverDescription("");
@@ -638,6 +686,8 @@ function App() {
           75%     { transform: rotate(3deg); }
         }
         .ag-notif-bell { animation: ag-bell-shake 1.4s ease 0.3s 2; transform-origin: top center; }
+        @keyframes shimmer { from{background-position:-200% 0} to{background-position:200% 0} }
+        @keyframes spin    { to{transform:rotate(360deg)} }
       `}</style>
 
       {/* ── Top-right action bar: Bell + Manager toggle ── */}
@@ -1371,7 +1421,7 @@ function App() {
             <div style={styles.metricsRow}>
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
-                  <span style={styles.metricLabel}>Triaged Cases</span>
+                  <span style={styles.metricLabel}>Closed Tickets</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
@@ -1396,54 +1446,144 @@ function App() {
             {/* ── 2×2 card grid ── */}
             <div style={styles.gridLayout}>
 
-              {/* Ticket Management */}
-              <div className="ag-card">
+              {/* Ticket Management — Zendesk Live */}
+              <div className="ag-card" style={{ gridColumn: "1 / -1" }}>
                 <div className="ag-card-header">
-                  <h3 style={styles.cardTitle}>Ticket Management - HIP</h3>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <h3 style={styles.cardTitle}>Zendesk Tickets</h3>
+                    {zdLastFetch && (
+                      <span style={{ fontSize:11, color:C.inkLight, fontFamily:"'JetBrains Mono',monospace" }}>
+                        refreshed {zdLastFetch.toLocaleTimeString()}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    {/* Live pulse */}
+                    {!zdLoading && (
+                      <span style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:C.greenText }}>
+                        <span style={{ width:6, height:6, borderRadius:"50%", background:C.greenText, display:"inline-block", animation:"pulse 2s infinite" }}/>
+                        Live
+                      </span>
+                    )}
+                    {zdLoading && (
+                      <div style={{ width:16, height:16, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.accentLight}`, borderRadius:"50%", animation:"spin .8s linear infinite" }}/>
+                    )}
+                    <button
+                      onClick={() => fetchZdByAgent(selectedAgent)}
+                      disabled={zdLoading}
+                      style={{ all:"unset", cursor:"pointer", padding:"4px 10px", borderRadius:6, border:`1px solid ${C.border}`, fontSize:11, color:C.inkMid, fontFamily:"'Plus Jakarta Sans',sans-serif" }}
+                    >
+                      ↻ Refresh
+                    </button>
+                  </div>
                 </div>
-                <div style={styles.cardBody}>
-                  <label style={styles.label}>Ticket Numbers</label>
-                  <textarea
-                    rows="3"
-                    placeholder="Enter ticket numbers (one per line)"
-                    value={ticketInput}
-                    onChange={(e) => setTicketInput(e.target.value)}
-                    className="ag-input"
-                  />
-                  <button className="ag-btn-primary" onClick={handleAddTickets}>
-                    Add Tickets
-                  </button>
 
-                  {tickets.length > 0 && (
-                    <div style={styles.ticketList}>
-                      <div style={styles.ticketListHeader}>
-                        <span style={styles.ticketCount}>{tickets.length} ticket(s) pending save</span>
-                      </div>
-                      {tickets.map((ticket, index) => (
-                        <div key={index} className="ag-ticket-item">
-                          <div style={styles.ticketNumber}>#{ticket.number}</div>
-                          <textarea
-                            placeholder="Add description..."
-                            value={ticket.description}
-                            onChange={(e) => {
-                              const updated = [...tickets];
-                              updated[index].description = e.target.value;
-                              setTickets(updated);
-                            }}
-                            className="ag-input"
-                            rows="2"
-                          />
-                        </div>
-                      ))}
-                      <button className="ag-btn-save" onClick={saveTicketsToBackend}>
-                        Save All Tickets
-                      </button>
+                <div style={{ padding:"16px 20px" }}>
+                  {/* Error */}
+                  {zdError && (
+                    <div style={{ padding:"10px 14px", background:C.redFaint, border:`1px solid ${C.redBorder}`, borderRadius:8, color:C.redText, fontSize:13, marginBottom:12 }}>
+                      ⚠ Could not load tickets: {zdError}
                     </div>
                   )}
+
+                  {/* Loading skeleton */}
+                  {zdLoading && zdTickets.length === 0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {[1,2,3].map(i => (
+                        <div key={i} style={{ height:56, borderRadius:8, background:`linear-gradient(90deg, ${C.raised} 25%, ${C.border} 50%, ${C.raised} 75%)`, backgroundSize:"200% 100%", animation:"shimmer 1.4s infinite" }}/>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty */}
+                  {!zdLoading && !zdError && zdTickets.length === 0 && (
+                    <div style={{ textAlign:"center", padding:"32px 0", color:C.inkLight, fontSize:13 }}>
+                      No tickets assigned to <strong style={{ color:C.inkMid }}>{selectedAgent}</strong> in Zendesk
+                    </div>
+                  )}
+
+                  {/* Ticket grid */}
+                  {zdTickets.length > 0 && (() => {
+                    const open   = zdTickets.filter(t => !["closed"].includes(t.status));
+                    const done   = zdTickets.filter(t =>   t.status === "closed");
+                    const closed = done; // alias for render
+                    const renderTicket = (t) => {
+                      const sc = ZD_COLOR[t.status] || ZD_COLOR.open;
+                      return (
+                        <div key={t.id} style={{
+                          background: C.raised,
+                          border: `1px solid ${["solved","closed"].includes(t.status) ? sc.border : C.border}`,
+                          borderLeft: `3px solid ${sc.text}`,
+                          borderRadius:8, padding:"12px 16px",
+                          opacity: t.status === "closed" ? 0.65 : 1,
+                          transition:"all .2s",
+                        }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
+                                <span style={{ fontSize:12, fontWeight:700, color:C.accentLight, fontFamily:"'JetBrains Mono',monospace" }}>
+                                  #{t.id}
+                                </span>
+                                <span style={{ padding:"2px 8px", borderRadius:999, fontSize:10, fontWeight:700, background:sc.bg, border:`1px solid ${sc.border}`, color:sc.text }}>
+                                  {sc.label}
+                                </span>
+                                {t.priority && t.priority !== "normal" && (
+                                  <span style={{ padding:"2px 8px", borderRadius:999, fontSize:10, fontWeight:600, background:C.amberFaint, border:`1px solid ${C.amberBorder}`, color:C.amberText }}>
+                                    {t.priority}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize:13, color:C.ink, fontWeight:500, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                {t.subject}
+                              </div>
+                              <div style={{ fontSize:11, color:C.inkLight }}>
+                                {t.requester && <span>👤 {t.requester} &nbsp;·&nbsp; </span>}
+                                {t.updated_at && <span>🕒 {new Date(t.updated_at).toLocaleString("en-IN", { timeZone:"Asia/Kolkata", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    };
+                    return (
+                      <div>
+                        {/* Summary bar */}
+                        <div style={{ display:"flex", gap:12, marginBottom:16, flexWrap:"wrap" }}>
+                          {Object.entries(
+                            zdTickets.reduce((acc, t) => { acc[t.status] = (acc[t.status]||0)+1; return acc; }, {})
+                          ).map(([status, count]) => {
+                            const sc = ZD_COLOR[status] || ZD_COLOR.open;
+                            return (
+                              <span key={status} style={{ padding:"3px 10px", borderRadius:999, fontSize:11, fontWeight:700, background:sc.bg, border:`1px solid ${sc.border}`, color:sc.text }}>
+                                {sc.label || status} · {count}
+                              </span>
+                            );
+                          })}
+                          <span style={{ marginLeft:"auto", fontSize:11, color:C.inkLight }}>{zdTickets.length} total</span>
+                        </div>
+
+                        {/* Open tickets */}
+                        {open.length > 0 && (
+                          <>
+                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>In Progress ({open.length})</div>
+                            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8, marginBottom:16 }}>
+                              {open.map(renderTicket)}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Closed/solved */}
+                        {closed.length > 0 && (
+                          <>
+                            <div style={{ fontSize:10, fontWeight:700, color:"#4ade80", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Done — Closed ({done.length})</div>
+                            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8 }}>
+                              {closed.map(renderTicket)}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
