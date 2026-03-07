@@ -583,6 +583,7 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
                 />
                 <ModalDetailCard label="Total Shifts"  value={agentStats.total_shifts  ?? 0} color={C.accentLight} />
                 <ModalDetailCard label="Cases Triaged" value={agentStats.total_triaged ?? 0} color={C.greenText}   />
+                <ModalDetailCard label="ZD Tickets Solved" value={agentStats.total_zd_tickets ?? 0} color="#818cf8" />
                 <ModalDetailCard label="Avg / Shift"   value={agentStats.avg_per_shift ?? 0} color={C.amberText}   />
               </div>
 
@@ -594,7 +595,7 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead className="mgr-thead">
                         <tr>
-                          {["Login Time", "Duration", "Cases Triaged"].map(h => (
+                          {["Login Time", "Duration", "Cases Triaged", "ZD Tickets"].map(h => (
                             <th key={h}>{h}</th>
                           ))}
                         </tr>
@@ -610,6 +611,11 @@ function AgentStatsModal({ agentStats, isLoading, error, onClose, formatDate, fo
                             </td>
                             <td style={{ fontWeight: 600, color: C.greenText }}>
                               {shift.triaged_count ?? 0}
+                            </td>
+                            <td style={{ ...styles.td, textAlign: "right" }}>
+                              <span style={{ color: (shift.zd_ticket_count || 0) > 0 ? "#818cf8" : C.inkLight, fontWeight: 600 }}>
+                                {shift.zd_ticket_count ?? 0}
+                              </span>
                             </td>
                           </tr>
                         ))}
@@ -928,6 +934,7 @@ function ManagerDashboard() {
                   <KpiCard label="Active Now"     value={analytics.active_now              ?? 0} color={C.greenText}   delay={0}    />
                   <KpiCard label="Agents Today"   value={analytics.today?.agents_active    ?? 0} color={C.accentLight} delay={0.05} />
                   <KpiCard label="Cases Triaged"  value={analytics.today?.cases_triaged    ?? 0} color={C.greenText}   delay={0.10} />
+                  <KpiCard label="ZD Tickets Solved" value={analytics.today?.zd_tickets ?? 0} color="#818cf8" delay={0.15} />
                   <KpiCard label="Avg Cases / hr" value={analytics.avg_productivity        ?? 0} color={C.amberText}   delay={0.15} />
                   <KpiCard label="Alerts Today"   value={analytics.alerts_today            ?? 0} color={C.redText}     delay={0.20} />
                   <KpiCard label="Tickets Today"  value={analytics.tickets_today           ?? 0} color={C.amberText}   delay={0.25} />
@@ -944,6 +951,7 @@ function ManagerDashboard() {
                   <KpiCard label="Active Agents" value={analytics.week?.agents_active ?? 0} color={C.accentLight} delay={0}    />
                   <KpiCard label="Total Shifts"  value={analytics.week?.total_shifts  ?? 0} color={C.indigo}      delay={0.05} />
                   <KpiCard label="Cases Triaged" value={analytics.week?.cases_triaged ?? 0} color={C.greenText}   delay={0.10} />
+                  <KpiCard label="ZD Tickets Solved" value={analytics.week?.zd_tickets ?? 0} color="#818cf8" delay={0.15} />
                 </div>
 
                 {/* This month */}
@@ -956,6 +964,7 @@ function ManagerDashboard() {
                   <KpiCard label="Active Agents" value={analytics.month?.agents_active ?? 0} color={C.accentLight} delay={0}    />
                   <KpiCard label="Total Shifts"  value={analytics.month?.total_shifts  ?? 0} color={C.indigo}      delay={0.05} />
                   <KpiCard label="Cases Triaged" value={analytics.month?.cases_triaged ?? 0} color={C.greenText}   delay={0.10} />
+                  <KpiCard label="ZD Tickets Solved" value={analytics.month?.zd_tickets ?? 0} color="#818cf8" delay={0.15} />
                 </div>
               </>
             ) : (
@@ -980,7 +989,7 @@ function ManagerDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead className="mgr-thead">
                     <tr>
-                      {["Agent Name", "Login Time", "Hours Active", "Cases Triaged", "Actions"].map(h => (
+                      {["Agent Name", "Login Time", "Hours Active", "Cases Triaged", "ZD Tickets", "Actions"].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -1008,6 +1017,11 @@ function ManagerDashboard() {
                         </td>
                         <td style={{ fontWeight: 600, color: C.greenText }}>
                           {agent.triaged_count ?? 0}
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{ color: (agent.zd_ticket_count || 0) > 0 ? C.greenText : C.inkLight, fontWeight: 600 }}>
+                            {agent.zd_ticket_count ?? 0}
+                          </span>
                         </td>
                         <td>
                           <div style={{ display: "flex", gap: 8 }}>
@@ -1090,7 +1104,7 @@ function ManagerDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead className="mgr-thead">
                     <tr>
-                      {["Agent Name", "Login", "Logout", "Duration", "Triaged", "Status", "Actions"].map(h => (
+                      {["Agent Name", "Login", "Logout", "Duration", "Triaged", "ZD Tickets", "Status", "Actions"].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -1118,6 +1132,11 @@ function ManagerDashboard() {
                         </td>
                         <td style={{ fontWeight: 600, color: C.greenText }}>
                           {shift.triaged_count ?? 0}
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{ color: (shift.zd_ticket_count || 0) > 0 ? C.greenText : C.inkLight, fontWeight: 600 }}>
+                            {shift.zd_ticket_count ?? 0}
+                          </span>
                         </td>
                         <td>
                           {shift.logout_time ? (

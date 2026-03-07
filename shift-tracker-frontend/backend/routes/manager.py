@@ -61,7 +61,7 @@ def get_active_agents():
             cur.execute("""
                 SELECT s.id, s.agent_id, s.login_time, s.triaged_count,
                        EXTRACT(EPOCH FROM (NOW()-s.login_time))/3600,
-                       COALESCE(ag.name,'Unknown Agent')
+                       COALESCE(ag.name,'Unknown Agent'), COALESCE(s.zd_ticket_count,0)
                 FROM shifts s LEFT JOIN agents ag ON s.agent_id=ag.id
                 WHERE s.logout_time IS NULL ORDER BY s.login_time DESC
             """)
@@ -69,7 +69,7 @@ def get_active_agents():
         return jsonify({"active_agents": [
             {"shift_id": str(r[0]), "agent_id": str(r[1]), "agent_name": r[5],
              "login_time": to_ist(r[2]), "triaged_count": r[3] or 0,
-             "hours_active": round(float(r[4] or 0), 2)}
+             "hours_active": round(float(r[4] or 0), 2), "zd_ticket_count": int(r[6] or 0)}
             for r in rows
         ]})
     except Exception as e:
@@ -83,7 +83,7 @@ def get_shifts():
     sql = """
         SELECT s.id, s.agent_id, s.login_time, s.logout_time, s.triaged_count,
                EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,
-               COALESCE(ag.name,'Unknown Agent')
+               COALESCE(ag.name,'Unknown Agent'), COALESCE(s.zd_ticket_count,0)
         FROM shifts s LEFT JOIN agents ag ON s.agent_id=ag.id WHERE 1=1
     """
     params = []
@@ -97,7 +97,8 @@ def get_shifts():
         return jsonify({"shifts": [
             {"id": str(r[0]), "agent_id": str(r[1]), "agent_name": r[6],
              "login_time": to_ist(r[2]), "logout_time": to_ist(r[3]),
-             "triaged_count": r[4] or 0, "duration_hours": round(float(r[5] or 0), 2)}
+             "triaged_count": r[4] or 0, "duration_hours": round(float(r[5] or 0), 2),
+             "zd_ticket_count": int(r[7] or 0)}
             for r in rows
         ]})
     except Exception as e:
@@ -112,17 +113,17 @@ def get_analytics():
             def s(sql): cur.execute(sql); return cur.fetchone()[0]
             def r(sql): cur.execute(sql); return cur.fetchone()
             active  = s("SELECT COUNT(*) FROM shifts WHERE logout_time IS NULL")
-            today   = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0) FROM shifts WHERE DATE(login_time)=CURRENT_DATE")
-            week    = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('week',CURRENT_DATE)")
-            month   = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('month',CURRENT_DATE)")
+            today   = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE DATE(login_time)=CURRENT_DATE")
+            week    = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('week',CURRENT_DATE)")
+            month   = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('month',CURRENT_DATE)")
             avg_p   = s("SELECT AVG(triaged_count/NULLIF(EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600,0)) FROM shifts WHERE logout_time IS NOT NULL AND EXTRACT(EPOCH FROM (logout_time-login_time))/3600>0.5 AND login_time>=CURRENT_DATE-INTERVAL '30 days'")
             alerts  = s("SELECT COUNT(*) FROM alerts WHERE DATE(created_at)=CURRENT_DATE")
             tickets = s("SELECT COUNT(*) FROM tickets WHERE DATE(created_at)=CURRENT_DATE")
         return jsonify({
             "active_now": active,
-            "today":  {"agents_active": today[0] or 0, "total_shifts": today[1] or 0, "cases_triaged": today[2] or 0},
-            "week":   {"agents_active": week[0]  or 0, "total_shifts": week[1]  or 0, "cases_triaged": week[2]  or 0},
-            "month":  {"agents_active": month[0] or 0, "total_shifts": month[1] or 0, "cases_triaged": month[2] or 0},
+            "today":  {"agents_active": today[0] or 0, "total_shifts": today[1] or 0, "cases_triaged": today[2] or 0, "zd_tickets": today[3] or 0},
+            "week":   {"agents_active": week[0]  or 0, "total_shifts": week[1]  or 0, "cases_triaged": week[2]  or 0, "zd_tickets": week[3]  or 0},
+            "month":  {"agents_active": month[0] or 0, "total_shifts": month[1] or 0, "cases_triaged": month[2] or 0, "zd_tickets": month[3] or 0},
             "avg_productivity": round(float(avg_p or 0), 2),
             "alerts_today": alerts or 0, "tickets_today": tickets or 0,
         })
@@ -140,17 +141,21 @@ def get_agent_stats(agent_id):
             name = name_row[0] if name_row else "Unknown Agent"
             cur.execute("SELECT COUNT(*) FROM shifts WHERE agent_id=%s", (agent_id,)); total_shifts = cur.fetchone()[0]
             cur.execute("SELECT COALESCE(SUM(triaged_count),0) FROM shifts WHERE agent_id=%s", (agent_id,)); total_triaged = cur.fetchone()[0]
+            cur.execute("SELECT COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE agent_id=%s", (agent_id,)); total_zd = cur.fetchone()[0]
             cur.execute("""
                 SELECT id,login_time,logout_time,triaged_count,
-                       EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600
+                       EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600,
+                       COALESCE(zd_ticket_count,0)
                 FROM shifts WHERE agent_id=%s ORDER BY login_time DESC LIMIT 10
             """, (agent_id,))
             recent = [{"id": str(r[0]), "login_time": to_ist(r[1]), "logout_time": to_ist(r[2]),
-                       "triaged_count": r[3] or 0, "duration_hours": round(float(r[4] or 0), 2)}
+                       "triaged_count": r[3] or 0, "duration_hours": round(float(r[4] or 0), 2),
+                       "zd_ticket_count": int(r[5] or 0)}
                       for r in cur.fetchall()]
         return jsonify({
             "agent_id": agent_id, "agent_name": name,
             "total_shifts": total_shifts, "total_triaged": total_triaged,
+            "total_zd_tickets": int(total_zd or 0),
             "avg_per_shift": round(total_triaged / total_shifts, 2) if total_shifts else 0,
             "recent_shifts": recent,
         })
@@ -164,7 +169,7 @@ def get_shift_details(shift_id):
     try:
         with db() as cur:
             cur.execute("""
-                SELECT s.agent_id,s.login_time,s.logout_time,s.triaged_count,COALESCE(ag.name,'Unknown Agent')
+                SELECT s.agent_id,s.login_time,s.logout_time,s.triaged_count,COALESCE(ag.name,'Unknown Agent'),COALESCE(s.zd_ticket_count,0)
                 FROM shifts s LEFT JOIN agents ag ON s.agent_id=ag.id WHERE s.id=%s
             """, (shift_id,))
             s = cur.fetchone()
@@ -173,7 +178,7 @@ def get_shift_details(shift_id):
         return jsonify({
             "agent_id": str(s[0]), "agent_name": s[4],
             "login_time": to_ist(s[1]), "logout_time": to_ist(s[2]),
-            "triaged_count": s[3] or 0, **acts,
+            "triaged_count": s[3] or 0, "zd_ticket_count": int(s[5] or 0), **acts,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -193,21 +198,22 @@ def get_advanced_analytics():
             def rows(sql): cur.execute(sql, p); return cur.fetchall()
 
             performance_trends = [
-                {"date": str(r[0]), "agents": r[1], "shifts": r[2], "total_triaged": r[3] or 0, "avg_triaged": round(float(r[4] or 0), 2)}
-                for r in rows("SELECT DATE(login_time),COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(AVG(triaged_count),0) FROM shifts WHERE login_time>=%s AND login_time<=%s GROUP BY DATE(login_time) ORDER BY 1")
+                {"date": str(r[0]), "agents": r[1], "shifts": r[2], "total_triaged": r[3] or 0, "avg_triaged": round(float(r[4] or 0), 2), "total_zd_tickets": int(r[5] or 0)}
+                for r in rows("SELECT DATE(login_time),COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(AVG(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=%s AND login_time<=%s GROUP BY DATE(login_time) ORDER BY 1")
             ]
             agent_rankings = [
                 {"rank": i+1, "agent_id": str(r[0]), "agent_name": r[1],
                  "shift_count": r[2], "total_triaged": int(r[3] or 0), "avg_triaged": round(float(r[4] or 0), 2),
                  "productivity_rate": round(float(r[5] or 0), 2), "total_tickets": int(r[6] or 0),
                  "total_alerts": int(r[7] or 0), "total_incidents": int(r[8] or 0), "total_adhoc": int(r[9] or 0),
-                 "avg_shift_hours": round(float(r[10] or 0), 2)}
+                 "avg_shift_hours": round(float(r[10] or 0), 2), "total_zd_tickets": int(r[11] or 0)}
                 for i, r in enumerate(rows("""
                     SELECT s.agent_id,COALESCE(ag.name,'Unknown Agent'),COUNT(DISTINCT s.id),
                            COALESCE(SUM(s.triaged_count),0),COALESCE(AVG(s.triaged_count),0),
                            COALESCE(AVG(s.triaged_count/NULLIF(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,0)),0),
                            COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id),
-                           COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0)
+                           COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0),
+                           COALESCE(SUM(s.zd_ticket_count),0)
                     FROM shifts s
                     LEFT JOIN tickets t ON t.shift_id=s.id LEFT JOIN alerts a ON a.shift_id=s.id
                     LEFT JOIN incident_status i ON i.shift_id=s.id LEFT JOIN adhoc_tasks ad ON ad.shift_id=s.id
@@ -311,24 +317,27 @@ def get_agent_detail(agent_id):
 
             cur.execute("""
                 SELECT s.id,DATE(s.login_time),EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,
-                       s.triaged_count,COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id)
+                       s.triaged_count,COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id),
+                       COALESCE(s.zd_ticket_count,0)
                 FROM shifts s
                 LEFT JOIN tickets t ON t.shift_id=s.id LEFT JOIN alerts a ON a.shift_id=s.id
                 LEFT JOIN incident_status i ON i.shift_id=s.id LEFT JOIN adhoc_tasks ad ON ad.shift_id=s.id
                 WHERE s.agent_id=%s AND s.login_time>=%s AND s.login_time<=%s
-                GROUP BY s.id,s.login_time,s.logout_time,s.triaged_count ORDER BY s.login_time DESC LIMIT 10
+                GROUP BY s.id,s.login_time,s.logout_time,s.triaged_count,s.zd_ticket_count ORDER BY s.login_time DESC LIMIT 10
             """, p)
             recent_shifts = [
                 {"id": str(r[0]), "date": str(r[1]), "duration_hours": round(float(r[2] or 0), 2),
                  "triaged_count": r[3] or 0, "ticket_count": int(r[4] or 0),
-                 "alert_count": int(r[5] or 0), "incident_count": int(r[6] or 0), "adhoc_count": int(r[7] or 0)}
+                 "alert_count": int(r[5] or 0), "incident_count": int(r[6] or 0), "adhoc_count": int(r[7] or 0),
+                 "zd_ticket_count": int(r[8] or 0)}
                 for r in cur.fetchall()
             ]
             cur.execute("""
                 SELECT COUNT(DISTINCT s.id),COALESCE(SUM(s.triaged_count),0),
                        COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id),
                        COALESCE(AVG(s.triaged_count),0),
-                       COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0)
+                       COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0),
+                       COALESCE(SUM(s.zd_ticket_count),0)
                 FROM shifts s
                 LEFT JOIN tickets t ON t.shift_id=s.id LEFT JOIN alerts a ON a.shift_id=s.id
                 LEFT JOIN incident_status i ON i.shift_id=s.id LEFT JOIN adhoc_tasks ad ON ad.shift_id=s.id
@@ -342,6 +351,7 @@ def get_agent_detail(agent_id):
             "total_tickets": int(k[2] or 0), "total_alerts": int(k[3] or 0),
             "total_incidents": int(k[4] or 0), "total_adhoc": int(k[5] or 0),
             "avg_triaged_per_shift": round(float(k[6] or 0), 2), "avg_shift_hours": round(float(k[7] or 0), 2),
+            "total_zd_tickets": int(k[8] or 0),
             "alert_breakdown": alert_breakdown, "monitor_breakdown": monitor_breakdown,
             "ticket_trend": trend("tickets"), "alert_trend": trend("alerts"),
             "incident_trend": trend("incident_status"), "adhoc_trend": trend("adhoc_tasks"),

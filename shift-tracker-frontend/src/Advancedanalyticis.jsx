@@ -435,6 +435,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
   const kpis = [
     { label:"Shifts",        value:agent.shift_count      || 0, color:C.accentLight },
     { label:"Triaged",       value:agent.total_triaged    || 0, color:C.greenText   },
+    { label:"ZD Tickets Solved", value:agent.total_zd_tickets || 0, color:"#818cf8" },
     { label:"HIP Tickets",   value:agent.total_tickets    || 0, color:C.amberText   },
     { label:"Alerts",        value:agent.total_alerts     || 0, color:C.redText     },
     { label:"Incidents",     value:agent.total_incidents  || 0, color:"#a78bfa"     },
@@ -599,7 +600,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Recent Shifts</div>
             <table style={{ width:"100%",borderCollapse:"collapse" }}>
               <thead className="aa-thead">
-                <tr><th>Date</th><th>Duration</th><th>Triaged</th><th>Tickets</th><th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th></tr>
+                <tr><th>Date</th><th>Duration</th><th>Triaged</th><th>ZD Tickets</th><th>Tickets</th><th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th></tr>
               </thead>
               <tbody className="aa-tbody">
                 {recentShifts.map((s,i)=>(
@@ -607,6 +608,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
                     <td style={{ color:C.inkMid,fontSize:11 }}>{s.date||"—"}</td>
                     <td style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11 }}>{s.duration_hours?`${s.duration_hours}h`:"—"}</td>
                     <td style={{ color:C.accentLight }}>{s.triaged_count??0}</td>
+                    <td style={{ color:"#818cf8",fontWeight:600 }}>{s.zd_ticket_count??0}</td>
                     <td style={{ color:C.amberText }}>{s.ticket_count??0}</td>
                     <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                     <td style={{ color:"#a78bfa" }}>{s.incident_count??0}</td>
@@ -907,6 +909,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
             <KpiCard value={peakAgents}     label="Peak Agents/Day" color={C.indigo}      delay={0.1}  />
             <KpiCard value={totalAlerts}    label="Total Alerts"    color={C.redText}     delay={0.15} />
             <KpiCard value={totalTickets}   label="HIP Tickets"     color={C.amberText}   delay={0.2}  />
+            <KpiCard value={performance_trends.reduce((s,d)=>s+(Number(d.total_zd_tickets)||0),0)} label="ZD Tickets Solved" color="#818cf8" delay={0.25} />
             <KpiCard value={totalIncidents} label="Incidents"       color="#a78bfa"       delay={0.25} />
             <KpiCard value={totalDialpad}   label="Dialpad Tickets" color={C.accentLight} delay={0.3}  />
           </div>
@@ -927,6 +930,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
               ? <LineAreaChart
                   datasets={[
                     {name:"Triaged",values:triagedVals,color:C.accentLight},
+                    {name:"ZD Tickets",values:performance_trends.map(d=>Number(d.total_zd_tickets)||0),color:"#818cf8"},
                     {name:"Shifts", values:shiftsVals, color:C.indigo},
                     {name:"Agents", values:agentsVals, color:C.greenText},
                   ]}
@@ -1029,7 +1033,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                   <table style={{ width:"100%",borderCollapse:"collapse" }}>
                     <thead className="aa-thead">
                       <tr>
-                        <th>Agent</th><th>Shifts</th><th>Triaged</th><th>HIP Tickets</th>
+                        <th>Agent</th><th>Shifts</th><th>Triaged</th><th>ZD Tickets</th><th>HIP Tickets</th>
                         <th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th>
                       </tr>
                     </thead>
@@ -1049,6 +1053,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                             </td>
                             <td style={{ fontFamily:"'JetBrains Mono',monospace",color:C.inkMid,fontSize:12 }}>{a.shift_count??  "—"}</td>
                             <td style={{ fontWeight:600,color:C.accentLight }}>{a.total_triaged?? "—"}</td>
+                            <td style={{ color:"#818cf8",fontWeight:600 }}>{a.total_zd_tickets?? "—"}</td>
                             <td style={{ color:C.amberText }}>{a.total_tickets??  "—"}</td>
                             <td style={{ color:C.redText }}>{a.total_alerts??   "—"}</td>
                             <td style={{ color:"#a78bfa" }}>{a.total_incidents??"—"}</td>
