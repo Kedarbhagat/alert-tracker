@@ -4,7 +4,7 @@ import ManagerDashboard from "./mngr_dash";
 
 // ── Collapsible Done section for Zendesk tickets ──────────────────────────
 function CollapsibleDone({ tickets, renderTicket }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
   const solvedCount = tickets.filter(t => t.status === "solved").length;
   const closedCount = tickets.filter(t => t.status === "closed").length;
   return (
