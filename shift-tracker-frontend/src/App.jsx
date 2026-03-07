@@ -2,6 +2,39 @@ import { useState, useEffect, useRef } from "react";
 import { styles, C, GLOBAL_CSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
 
+// ── Collapsible Done section for Zendesk tickets ──────────────────────────
+function CollapsibleDone({ tickets, renderTicket }) {
+  const [open, setOpen] = React.useState(false);
+  const solvedCount = tickets.filter(t => t.status === "solved").length;
+  const closedCount = tickets.filter(t => t.status === "closed").length;
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)",
+          borderRadius: 8, padding: "8px 14px", cursor: "pointer", color: "#a5b4fc",
+          fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
+          marginBottom: open ? 10 : 0, transition: "all .2s",
+        }}
+      >
+        <span>
+          ✔ Done — {tickets.length} ticket{tickets.length !== 1 ? "s" : ""}
+          {solvedCount > 0 && <span style={{ marginLeft: 8, color: "#818cf8" }}>Solved · {solvedCount}</span>}
+          {closedCount > 0 && <span style={{ marginLeft: 8, color: "#4ade80" }}>Closed · {closedCount}</span>}
+        </span>
+        <span style={{ fontSize: 14, transition: "transform .2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 8 }}>
+          {tickets.map(renderTicket)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [agents, setAgents]               = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
@@ -167,7 +200,8 @@ function App() {
   const [zdError, setZdError]             = useState(null);
   const [zdLastFetch, setZdLastFetch]     = useState(null);
   const zdPollRef                         = useRef(null);
-  const zdPrevIds                         = useRef({});   // {id -> status} for polling diff
+  const zdBaselineDone                    = useRef(null); // done count at shift start
+  const shiftIdRef                          = useRef(null); // always-current shiftId
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
@@ -226,6 +260,12 @@ function App() {
 
   // ── Triage debounce ──────────────────────────────────────────────────────
   const triageUpdating = useRef(false);
+
+  // Keep shiftIdRef in sync so closures always see the latest shiftId
+  useEffect(() => {
+    shiftIdRef.current = shiftId;
+    if (!shiftId) { zdBaselineDone.current = null; }
+  }, [shiftId]);
 
   const fetchHandovers = async () => {
     setHandoversLoading(true);
@@ -372,38 +412,24 @@ function App() {
       const data = await res.json();
       const incoming = data.tickets || [];
 
-      // Detect tickets newly transitioned since last poll
-      // Only "closed" = truly DONE and counts toward triage; "solved" = pending close
-      const prevStatusMap = zdPrevIds.current; // {id -> status}
-      let newlyClosedCount = 0;
-      incoming.forEach(t => {
-        const prevStatus = prevStatusMap[t.id];
-        const wasNotClosed = prevStatus !== undefined && prevStatus !== "closed";
-        const isNowClosed  = t.status === "closed";
-        if (wasNotClosed && isNowClosed) {
-          newlyClosedCount++;
-          showToast(`Ticket #${t.id} — "${t.subject}" is now Closed`, "success");
-        } else if (prevStatus !== undefined && prevStatus !== "solved" && t.status === "solved") {
-          showToast(`Ticket #${t.id} — "${t.subject}" is Solved (awaiting close)`, "info");
-        }
-      });
+      const DONE_STATUSES = ["solved", "closed"];
+      const currentDoneCount = incoming.filter(t => DONE_STATUSES.includes(t.status)).length;
 
-      // Auto-increment triage count for each newly closed ticket
-      if (newlyClosedCount > 0 && shiftId) {
-        fetch(`${API}/update-triage`, {
+      // Baseline: snapshot done count at shift start so we only count THIS shift
+      if (zdBaselineDone.current === null) {
+        zdBaselineDone.current = currentDoneCount;
+      }
+      const doneDuringShift = Math.max(0, currentDoneCount - zdBaselineDone.current);
+      setZdDoneCount(doneDuringShift);
+
+      // Persist to DB
+      if (shiftIdRef.current) {
+        fetch(`${API}/update-zd-count`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: shiftId, change: newlyClosedCount }),
-        })
-          .then(r => r.json())
-          .then(d => { if (d.triaged_count !== undefined) setTriagedCount(d.triaged_count); })
-          .catch(() => {});
+          body: JSON.stringify({ shift_id: shiftIdRef.current, count: doneDuringShift }),
+        }).catch(() => {});
       }
-
-      // Save current status map for next poll diff: {id -> status}
-      const nextStatusMap = {};
-      incoming.forEach(t => { nextStatusMap[t.id] = t.status; });
-      zdPrevIds.current = nextStatusMap;
 
       setZdTickets(incoming);
       setZdLastFetch(new Date());
@@ -592,6 +618,7 @@ function App() {
     setPendingAgent(null);
     setShiftId(null);
     setTriagedCount(0);
+    setZdDoneCount(0);
     setZdDoneCount(0);
     setZdTickets([]);
     setIncidentStatus("");
@@ -1526,9 +1553,9 @@ function App() {
 
                   {/* Ticket grid */}
                   {zdTickets.length > 0 && (() => {
-                    const open   = zdTickets.filter(t => !["closed"].includes(t.status));
-                    const done   = zdTickets.filter(t =>   t.status === "closed");
-                    const closed = done; // alias for render
+                    const ACTIVE = ["open","new","pending","hold"];
+                    const openTickets   = zdTickets.filter(t => ACTIVE.includes(t.status));
+                    const doneTickets   = zdTickets.filter(t => t.status === "solved" || t.status === "closed");
                     const renderTicket = (t) => {
                       const sc = ZD_COLOR[t.status] || ZD_COLOR.open;
                       return (
@@ -1584,24 +1611,21 @@ function App() {
                           <span style={{ marginLeft:"auto", fontSize:11, color:C.inkLight }}>{zdTickets.length} total</span>
                         </div>
 
-                        {/* Open tickets */}
-                        {open.length > 0 && (
+                        {/* Active tickets */}
+                        {openTickets.length > 0 && (
                           <>
-                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>In Progress ({open.length})</div>
+                            <div style={{ fontSize:10, fontWeight:700, color:C.inkLight, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                              In Progress ({openTickets.length})
+                            </div>
                             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8, marginBottom:16 }}>
-                              {open.map(renderTicket)}
+                              {openTickets.map(renderTicket)}
                             </div>
                           </>
                         )}
 
-                        {/* Closed/solved */}
-                        {closed.length > 0 && (
-                          <>
-                            <div style={{ fontSize:10, fontWeight:700, color:"#4ade80", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Done — Closed ({done.length})</div>
-                            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:8 }}>
-                              {closed.map(renderTicket)}
-                            </div>
-                          </>
+                        {/* Solved + Closed — collapsible */}
+                        {doneTickets.length > 0 && (
+                          <CollapsibleDone tickets={doneTickets} renderTicket={renderTicket} />
                         )}
                       </div>
                     );
