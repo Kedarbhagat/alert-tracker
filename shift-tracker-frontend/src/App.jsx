@@ -13,7 +13,7 @@ const msalConfig = {
   cache: { cacheLocation: "sessionStorage" },
 };
 const msalInstance = new PublicClientApplication(msalConfig);
-await msalInstance.initialize();
+
 
 const LOGIN_REQUEST = { scopes: ["User.Read"] };
 
@@ -191,6 +191,7 @@ function App() {
   useEffect(() => {
     const tryRestoreSession = async () => {
       try {
+        await msalInstance.initialize();  // ← add here
         await msalInstance.handleRedirectPromise();
         const accounts = msalInstance.getAllAccounts();
         if (accounts.length > 0) {
