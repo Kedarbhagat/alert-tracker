@@ -1,6 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { styles, C, GLOBAL_CSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
+import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
+
+// ── MSAL config — replace clientId with your Azure AD App Registration client ID ──
+const msalConfig = {
+  auth: {
+    clientId: "YOUR_AZURE_AD_CLIENT_ID",          // ← replace this
+    authority: "https://login.microsoftonline.com/e7b03940-3fa9-4a41-a717-2581a9633754",
+    redirectUri: window.location.origin,
+  },
+  cache: { cacheLocation: "sessionStorage" },
+};
+const msalInstance = new PublicClientApplication(msalConfig);
+await msalInstance.initialize();
+
+const LOGIN_REQUEST = { scopes: ["User.Read"] };
 
 // ── Collapsible Done section for Zendesk tickets ──────────────────────────
 function CollapsibleDone({ tickets, renderTicket }) {
@@ -36,8 +51,13 @@ function CollapsibleDone({ tickets, renderTicket }) {
 }
 
 function App() {
+  // ── Auth state ───────────────────────────────────────────────────────────
+  const [authUser,      setAuthUser]      = useState(null);   // { id, name, email, role }
+  const [authLoading,   setAuthLoading]   = useState(true);   // checking existing session
+  const [authError,     setAuthError]     = useState(null);
+
   const [agents, setAgents]               = useState([]);
-  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError]     = useState(null);
   const [pendingAgent, setPendingAgent]   = useState(null);
   const [activeAgentId, setActiveAgentId] = useState(null);
@@ -167,32 +187,87 @@ function App() {
     }
   }, []);
 
-  // ── Fetch agents from DB on mount ───────────────────────────────────────────
+  // ── MSAL: restore existing session on mount ────────────────────────────────
   useEffect(() => {
-    const loadAgents = async () => {
+    const tryRestoreSession = async () => {
       try {
-        setAgentsLoading(true);
-        const res = await fetch(`${API}/manager/users`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = await res.json();
-        setAgents(d.users || []);
+        await msalInstance.handleRedirectPromise();
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+          // Already signed in — silently get a token and verify with our backend
+          const tokenRes = await msalInstance.acquireTokenSilent({
+            ...LOGIN_REQUEST, account: accounts[0],
+          });
+          await verifyWithBackend(tokenRes.account.username);
+        }
       } catch (e) {
-        setAgentsError(e.message);
+        console.warn("Session restore failed:", e);
       } finally {
-        setAgentsLoading(false);
+        setAuthLoading(false);
       }
     };
-    loadAgents();
+    tryRestoreSession();
   }, []);
+
+  const verifyWithBackend = async (email) => {
+    setAuthError(null);
+    try {
+      const res = await fetch(`${API}/manager/auth/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authorized) {
+        setAuthError(data.error || "Your account is not registered. Contact your manager.");
+        msalInstance.logoutPopup().catch(() => {});
+        return;
+      }
+      setAuthUser(data.user);
+      // If manager role, go straight to manager dashboard
+      if (data.user.role === "manager") {
+        setShowManager(true);
+      }
+      // If agent role, pre-set activeAgentId so session restore works
+      if (data.user.role === "agent") {
+        setActiveAgentId(data.user.id);
+      }
+    } catch (e) {
+      setAuthError("Could not verify account: " + e.message);
+    }
+  };
+
+  const handleMicrosoftLogin = async () => {
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      const result = await msalInstance.loginPopup(LOGIN_REQUEST);
+      await verifyWithBackend(result.account.username);
+    } catch (e) {
+      if (e.errorCode !== "user_cancelled") {
+        setAuthError("Login failed: " + (e.message || e.errorCode));
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await msalInstance.logoutPopup().catch(() => {});
+    setAuthUser(null);
+    setSelectedAgent(null);
+    setShiftId(null);
+    localStorage.removeItem("activeShift");
+  };
+
+
 
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId]             = useState(null);
   const [triagedCount, setTriagedCount]   = useState(0);
   const [zdDoneCount,   setZdDoneCount]     = useState(0);
   const [showManager, setShowManager]     = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [managerPassword, setManagerPassword]     = useState("");
-  const [passwordError, setPasswordError]         = useState("");
+
 
   // ── Zendesk ticket state ──────────────────────────────────────────────────
   const [zdTickets, setZdTickets]         = useState([]);   // live tickets from Zendesk
@@ -632,34 +707,97 @@ function App() {
   };
 
   const handleManagerToggle = () => {
-    if (showManager) {
-      // If already showing manager, just toggle off
-      setShowManager(false);
-      setShowPasswordModal(false);
-      setManagerPassword("");
-      setPasswordError("");
-    } else {
-      // If trying to enter manager view, show password modal
-      setShowPasswordModal(true);
-      setManagerPassword("");
-      setPasswordError("");
-    }
+    setShowManager(v => !v);
   };
 
-  const handlePasswordSubmit = () => {
-    if (managerPassword === "p442014") {
-      setShowManager(true);
-      setShowPasswordModal(false);
-      setManagerPassword("");
-      setPasswordError("");
-    } else {
-      setPasswordError("Incorrect password");
-      setManagerPassword("");
-    }
-  };
+
 
   // ── Shared icon colours ─────────────────────────────────────────────────────
   const iconStroke = C.inkMid;
+
+  // ── Auth guard: show login screen if not authenticated ──────────────────────
+  if (authLoading) {
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ width:28, height:28, border:`2px solid ${C.borderLight}`, borderTop:`2px solid ${C.accentLight}`, borderRadius:"50%", animation:"spin .8s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Inter',sans-serif" }}>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+        `}</style>
+        <div style={{
+          background: C.surface, border:`1px solid ${C.border}`, borderRadius:16,
+          padding:"48px 40px", maxWidth:400, width:"90%", textAlign:"center",
+          boxShadow:"0 24px 56px rgba(0,0,0,0.6)", animation:"rise .3s ease",
+        }}>
+          {/* Logo */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:32 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:"rgba(37,99,235,0.15)", border:`1px solid rgba(37,99,235,0.3)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.accentLight} strokeWidth="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <span style={{ fontSize:20, fontWeight:700, color:C.ink, letterSpacing:"-0.02em" }}>Project44</span>
+          </div>
+
+          <h1 style={{ fontSize:22, fontWeight:700, color:C.ink, margin:"0 0 8px", letterSpacing:"-0.02em" }}>
+            Welcome back
+          </h1>
+          <p style={{ fontSize:13, color:C.inkMid, margin:"0 0 32px", lineHeight:1.6 }}>
+            Sign in with your project44 account to access the shift tracker
+          </p>
+
+          {authError && (
+            <div style={{
+              padding:"12px 14px", marginBottom:20,
+              background:C.redFaint, border:`1px solid ${C.redBorder}`,
+              borderRadius:8, color:C.redText, fontSize:13, textAlign:"left",
+              display:"flex", gap:8, alignItems:"flex-start",
+            }}>
+              <span style={{ flexShrink:0 }}>⚠</span>
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleMicrosoftLogin}
+            style={{
+              width:"100%", padding:"13px 16px",
+              background:"white", color:"#1a1a1a",
+              border:"1px solid #d1d5db", borderRadius:8,
+              fontSize:14, fontWeight:600, cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+              fontFamily:"'Inter',sans-serif",
+              transition:"all .15s",
+              boxShadow:"0 1px 3px rgba(0,0,0,0.1)",
+            }}
+          >
+            {/* Microsoft logo SVG */}
+            <svg width="18" height="18" viewBox="0 0 21 21" fill="none">
+              <rect x="0" y="0" width="10" height="10" fill="#f25022"/>
+              <rect x="11" y="0" width="10" height="10" fill="#7fba00"/>
+              <rect x="0" y="11" width="10" height="10" fill="#00a4ef"/>
+              <rect x="11" y="11" width="10" height="10" fill="#ffb900"/>
+            </svg>
+            Sign in with Microsoft
+          </button>
+
+          <p style={{ fontSize:11, color:C.inkLight, marginTop:20 }}>
+            Only @project44.com accounts with registered access can sign in
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  RENDER
@@ -772,42 +910,44 @@ function App() {
         {/* Divider */}
         <div style={{ width: "1px", height: "18px", background: "#3d444d", flexShrink: 0 }} />
 
-        {/* Manager toggle */}
-        <button
-          onClick={handleManagerToggle}
-          title={showManager ? "Switch to Agent View" : "Switch to Manager View"}
-          className="ag-action-btn"
-          style={{
-            boxSizing: "border-box",
-            width: "36px", height: "36px", borderRadius: "7px",
-            background: showManager ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)",
-            border: showManager ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)",
-            cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "background 0.15s, border-color 0.15s",
-            flexShrink: 0,
-          }}
-        >
-          {showManager ? (
-            <svg width="16" height="16" viewBox="0 0 24 24"
-              fill="none" stroke="#a5b4fc" strokeWidth="2.5"
-              strokeLinecap="round" strokeLinejoin="round"
-              style={{ display: "block", flexShrink: 0 }}
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24"
-              fill="none" stroke="#c9d1d9" strokeWidth="2.5"
-              strokeLinecap="round" strokeLinejoin="round"
-              style={{ display: "block", flexShrink: 0 }}
-            >
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-            </svg>
-          )}
-        </button>
+        {/* Manager toggle — only visible to managers */}
+        {authUser?.role === "manager" && (
+          <button
+            onClick={handleManagerToggle}
+            title={showManager ? "Switch to Agent View" : "Switch to Manager View"}
+            className="ag-action-btn"
+            style={{
+              boxSizing: "border-box",
+              width: "36px", height: "36px", borderRadius: "7px",
+              background: showManager ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)",
+              border: showManager ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.15s, border-color 0.15s",
+              flexShrink: 0,
+            }}
+          >
+            {showManager ? (
+              <svg width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="#a5b4fc" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ display: "block", flexShrink: 0 }}
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="#c9d1d9" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ display: "block", flexShrink: 0 }}
+              >
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+              </svg>
+            )}
+          </button>
+        )}
 
       </div>
 
@@ -922,140 +1062,6 @@ function App() {
         </div>
       )}
 
-      {/* ── Notification panel backdrop ── */}
-      {showPasswordModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.72)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => {
-            setShowPasswordModal(false);
-            setManagerPassword("");
-            setPasswordError("");
-          }}
-        >
-          <div
-            style={{
-              background: C.surface,
-              border: `1px solid ${C.border}`,
-              borderRadius: "14px",
-              padding: "40px",
-              maxWidth: "380px",
-              width: "90%",
-              boxShadow: "0 24px 56px rgba(0,0,0,0.7)",
-              textAlign: "center",
-              animation: "agent-rise .2s ease",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{
-              width: 60,
-              height: 60,
-              borderRadius: "50%",
-              background: "rgba(37,99,235,0.15)",
-              border: `1px solid ${C.accentBorder}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              margin: "0 auto 18px",
-            }}>
-              🔐
-            </div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 6, marginTop: 0 }}>
-              Manager Access
-            </h2>
-            <p style={{ fontSize: 13, color: C.inkMid, marginBottom: 24, marginTop: 0 }}>
-              Enter the password to access manager dashboard
-            </p>
-            
-            <input
-              type="password"
-              placeholder="Enter password…"
-              value={managerPassword}
-              onChange={(e) => setManagerPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
-              autoFocus
-              style={{
-                width: "100%",
-                padding: "11px 14px",
-                marginBottom: "8px",
-                background: C.bgAlt,
-                border: `1px solid ${passwordError ? C.redBorder : C.border}`,
-                borderRadius: "8px",
-                color: C.ink,
-                fontSize: "13px",
-                fontFamily: "'Inter',sans-serif",
-                outline: "none",
-                transition: "border-color .15s",
-                boxSizing: "border-box",
-              }}
-            />
-            
-            {passwordError && (
-              <div style={{
-                color: C.redText,
-                fontSize: "12px",
-                marginBottom: "16px",
-                fontWeight: 500,
-              }}>
-                {passwordError}
-              </div>
-            )}
-            
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                style={{
-                  flex: 1,
-                  padding: "11px 0",
-                  background: "transparent",
-                  border: `1px solid ${C.border}`,
-                  color: C.inkMid,
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  fontFamily: "'Inter',sans-serif",
-                  cursor: "pointer",
-                  transition: "all .15s",
-                }}
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setManagerPassword("");
-                  setPasswordError("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                style={{
-                  flex: 1,
-                  padding: "11px 0",
-                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                  border: "none",
-                  color: "#fff",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  fontFamily: "'Inter',sans-serif",
-                  cursor: "pointer",
-                  transition: "all .15s",
-                }}
-                onClick={handlePasswordSubmit}
-              >
-                Access
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ══════════════════════════════════════════════════════════════════════
           MANAGER VIEW
       ══════════════════════════════════════════════════════════════════════ */}
@@ -1063,86 +1069,47 @@ function App() {
         <ManagerDashboard />
 
       /* ════════════════════════════════════════════════════════════════════
-          LOGIN / AGENT SELECT
+          AGENT: START SHIFT (auto-populated from MS login)
       ════════════════════════════════════════════════════════════════════ */
       ) : !selectedAgent ? (
         <div style={styles.loginWrapper}>
-          {/* Company Branding Header */}
-          <div style={styles.brandHeader}>
-            <div style={styles.brandContent}>
-              <div style={styles.brandIconSmall}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-              </div>
-              <div>
-                <div style={styles.brandNameSmall}>Project44</div>
-              </div>
-            </div>
-          </div>
-
           <div style={styles.loginCard}>
-
-            {/* Profile Selection Subtitle */}
             <div style={styles.loginLogoSection}>
-              <h1 style={styles.loginCardTitle}>Select Your Profile</h1>
-              <p style={styles.loginSubtitle}>Choose your account to begin your shift</p>
+              <div style={{
+                width:56, height:56, borderRadius:14,
+                background:"rgba(37,99,235,0.12)", border:`1px solid rgba(37,99,235,0.25)`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:24, fontWeight:700, color:C.accentLight,
+                margin:"0 auto 16px",
+              }}>
+                {authUser.name.charAt(0).toUpperCase()}
+              </div>
+              <h1 style={styles.loginCardTitle}>Ready to start?</h1>
+              <p style={styles.loginSubtitle}>
+                Signed in as <strong style={{ color:C.ink }}>{authUser.name}</strong>
+              </p>
+              <p style={{ fontSize:12, color:C.inkLight, margin:"4px 0 0" }}>{authUser.email}</p>
             </div>
 
-            {/* Loading / error states */}
-            {agentsLoading && (
-              <div style={{ textAlign: "center", padding: "32px 0" }}>
-                <div style={{
-                  width: 26, height: 26, margin: "0 auto",
-                  border: `2px solid ${C.borderLight}`,
-                  borderTop: `2px solid ${C.accentLight}`,
-                  borderRadius: "50%",
-                  animation: "agent-spin .8s linear infinite",
-                }} />
-              </div>
-            )}
-            {agentsError && (
-              <div style={{
-                padding: "12px 16px", marginBottom: "16px",
-                background: C.redFaint, border: `1px solid ${C.redBorder}`,
-                borderRadius: "8px", color: C.redText,
-                fontSize: "13px", display: "flex", alignItems: "center", gap: "8px",
-              }}>
-                <span>⚠</span> Could not load agents: {agentsError}
-              </div>
-            )}
-            {!agentsLoading && !agentsError && agents.length === 0 && (
-              <div style={{ textAlign: "center", padding: "32px 0", color: C.inkLight, fontSize: "14px" }}>
-                No agents registered yet. Ask your manager to add agents.
-              </div>
-            )}
-
-            {/* Agent grid */}
-            <div style={styles.agentGrid}>
-              {agents.map((agent) => {
-                const blocked  = agent.is_active && agent.id !== activeAgentId;
-                const isMyself = agent.is_active && agent.id === activeAgentId;
-                return (
-                  <button
-                    key={agent.id}
-                    className="ag-agent-btn"
-                    style={{ opacity: blocked ? 0.4 : 1, cursor: blocked ? "not-allowed" : "pointer" }}
-                    onClick={() => { if (!blocked) handleSelectAgent(agent); }}
-                  >
-                    <div style={styles.agentAvatar}>
-                      {agent.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span style={styles.agentName}>{agent.name}</span>
-                    {agent.is_active && (
-                      <span className={isMyself ? "ag-badge-resume" : "ag-badge-active"}>
-                        {isMyself ? "↩ Resume Shift" : "● In Shift"}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:8 }}>
+              <button
+                className="ag-btn-confirm"
+                onClick={() => handleSelectAgent(authUser)}
+                style={{ width:"100%", padding:"13px 0", fontSize:14 }}
+              >
+                Start Shift
+              </button>
+              <button
+                onClick={handleSignOut}
+                style={{
+                  width:"100%", padding:"11px 0", fontSize:13,
+                  background:"transparent", border:`1px solid ${C.border}`,
+                  color:C.inkMid, borderRadius:8, cursor:"pointer",
+                  fontFamily:"'Inter',sans-serif", fontWeight:500,
+                }}
+              >
+                Sign out
+              </button>
             </div>
           </div>
 

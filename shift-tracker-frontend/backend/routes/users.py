@@ -6,6 +6,32 @@ from db import db, to_ist
 users_bp = Blueprint("users", __name__, url_prefix="/manager")
 
 
+@users_bp.route("/auth/verify", methods=["POST", "OPTIONS"])
+def verify_user():
+    """POST /manager/auth/verify  { email: "user@project44.com" }
+       Returns the agent record if the email exists in the agents table."""
+    if request.method == "OPTIONS":
+        return "", 200
+    email = ((request.json or {}).get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+    try:
+        with db() as cur:
+            cur.execute(
+                "SELECT id::text, name, email, role FROM agents WHERE LOWER(email)=%s",
+                (email,)
+            )
+            row = cur.fetchone()
+        if not row:
+            return jsonify({"authorized": False, "error": "No account found for this email"}), 403
+        return jsonify({
+            "authorized": True,
+            "user": {"id": row[0], "name": row[1], "email": row[2], "role": row[3]}
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @users_bp.route("/users", methods=["GET", "OPTIONS"])
 def list_users():
     if request.method == "OPTIONS": return "", 200
