@@ -6,7 +6,7 @@ import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/ms
 // ── MSAL config — replace clientId with your Azure AD App Registration client ID ──
 const msalConfig = {
   auth: {
-    clientId: "YOUR_AZURE_AD_CLIENT_ID",          // ← replace this
+    clientId: "efbddc50-ac5f-4016-9c85-fd52b29d2114",          // ← replace this
     authority: "https://login.microsoftonline.com/e7b03940-3fa9-4a41-a717-2581a9633754",
     redirectUri: window.location.origin,
   },
