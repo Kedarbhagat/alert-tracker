@@ -1,21 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { styles, C, GLOBAL_CSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
-import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
 
-// ── MSAL config — replace clientId with your Azure AD App Registration client ID ──
-const msalConfig = {
-  auth: {
-    clientId: "efbddc50-ac5f-4016-9c85-fd52b29d2114",          // ← replace this
-    authority: "https://login.microsoftonline.com/e7b03940-3fa9-4a41-a717-2581a9633754",
-    redirectUri: window.location.origin,
-  },
-  cache: { cacheLocation: "sessionStorage" },
-};
-const msalInstance = new PublicClientApplication(msalConfig);
-
-
-const LOGIN_REQUEST = { scopes: ["User.Read"] };
+const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
 
 // ── Collapsible Done section for Zendesk tickets ──────────────────────────
 function CollapsibleDone({ tickets, renderTicket }) {
@@ -52,9 +39,9 @@ function CollapsibleDone({ tickets, renderTicket }) {
 
 function App() {
   // ── Auth state ───────────────────────────────────────────────────────────
-  const [authUser,      setAuthUser]      = useState(null);   // { id, name, email, role }
-  const [authLoading,   setAuthLoading]   = useState(true);   // checking existing session
-  const [authError,     setAuthError]     = useState(null);
+  const [authUser,    setAuthUser]    = useState(null);  // { id, name, email, role }
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError,   setAuthError]   = useState(null);
 
   const [agents, setAgents]               = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
@@ -174,40 +161,35 @@ function App() {
     ],
   };
 
-  const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [shiftId, setShiftId]             = useState(null);
+  const [triagedCount, setTriagedCount]   = useState(0);
+  const [zdDoneCount,   setZdDoneCount]     = useState(0);
 
-  // ── Inject global CSS once ──────────────────────────────────────────────────
+  // ── On mount: check if already logged in via /.auth/me ──────────────────
   useEffect(() => {
-    const id = "ag-global-styles";
-    if (!document.getElementById(id)) {
-      const el = document.createElement("style");
-      el.id = id;
-      el.textContent = GLOBAL_CSS;
-      document.head.appendChild(el);
-    }
-  }, []);
-
-  // ── MSAL: restore existing session on mount ────────────────────────────────
-  useEffect(() => {
-    const tryRestoreSession = async () => {
+    const checkSession = async () => {
       try {
-        await msalInstance.initialize();  // ← add here
-        await msalInstance.handleRedirectPromise();
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-          // Already signed in — silently get a token and verify with our backend
-          const tokenRes = await msalInstance.acquireTokenSilent({
-            ...LOGIN_REQUEST, account: accounts[0],
-          });
-          await verifyWithBackend(tokenRes.account.username);
-        }
+        const res = await fetch(`${API}/.auth/me`, { credentials: "include" });
+        if (!res.ok) { setAuthLoading(false); return; }
+        const data = await res.json();
+        const claims = data.clientPrincipal;
+        if (!claims) { setAuthLoading(false); return; }
+        // Extract email from claims
+        const emailClaim = claims.claims?.find(c =>
+          c.typ === "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" ||
+          c.typ === "preferred_username" ||
+          c.typ === "email"
+        );
+        const email = emailClaim?.val || claims.userDetails;
+        if (email) await verifyWithBackend(email);
       } catch (e) {
-        console.warn("Session restore failed:", e);
+        console.warn("Session check failed:", e);
       } finally {
         setAuthLoading(false);
       }
     };
-    tryRestoreSession();
+    checkSession();
   }, []);
 
   const verifyWithBackend = async (email) => {
@@ -221,56 +203,28 @@ function App() {
       const data = await res.json();
       if (!res.ok || !data.authorized) {
         setAuthError(data.error || "Your account is not registered. Contact your manager.");
-        msalInstance.logoutPopup().catch(() => {});
         return;
       }
       setAuthUser(data.user);
-      // If manager role, go straight to manager dashboard
-      if (data.user.role === "manager") {
-        setShowManager(true);
-      }
-      // If agent role, pre-set activeAgentId so session restore works
-      if (data.user.role === "agent") {
-        setActiveAgentId(data.user.id);
-      }
+      if (data.user.role === "manager") setShowManager(true);
+      if (data.user.role === "agent")   setActiveAgentId(data.user.id);
     } catch (e) {
       setAuthError("Could not verify account: " + e.message);
     }
   };
 
-  const handleMicrosoftLogin = async () => {
-    setAuthError(null);
-    setAuthLoading(true);
-    try {
-      const result = await msalInstance.loginPopup(LOGIN_REQUEST);
-      await verifyWithBackend(result.account.username);
-    } catch (e) {
-      if (e.errorCode !== "user_cancelled") {
-        setAuthError("Login failed: " + (e.message || e.errorCode));
-      }
-    } finally {
-      setAuthLoading(false);
-    }
+  const handleMicrosoftLogin = () => {
+    // Redirect to backend Azure AD login — it handles everything and redirects back
+    const returnUrl = encodeURIComponent(window.location.origin);
+    window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${returnUrl}`;
   };
 
-  const handleSignOut = async () => {
-    await msalInstance.logoutPopup().catch(() => {});
-    setAuthUser(null);
-    setSelectedAgent(null);
-    setShiftId(null);
-    localStorage.removeItem("activeShift");
+  const handleSignOut = () => {
+    const returnUrl = encodeURIComponent(window.location.origin);
+    window.location.href = `${API}/.auth/logout?post_logout_redirect_uri=${returnUrl}`;
   };
 
 
-
-  const [selectedAgent, setSelectedAgent] = useState(null);
-  const [shiftId, setShiftId]             = useState(null);
-  const [triagedCount, setTriagedCount]   = useState(0);
-  const [zdDoneCount,   setZdDoneCount]     = useState(0);
-  const [showManager, setShowManager]     = useState(false);
-
-
-  // ── Zendesk ticket state ──────────────────────────────────────────────────
   const [zdTickets, setZdTickets]         = useState([]);   // live tickets from Zendesk
   const [zdLoading, setZdLoading]         = useState(false);
   const [zdError, setZdError]             = useState(null);
@@ -707,34 +661,33 @@ function App() {
     setAlertComment("");
   };
 
-  const handleManagerToggle = () => {
-    setShowManager(v => !v);
-  };
+  const handleManagerToggle = () => setShowManager(v => !v);
 
 
 
   // ── Shared icon colours ─────────────────────────────────────────────────────
   const iconStroke = C.inkMid;
 
-  // ── Auth guard: show login screen if not authenticated ──────────────────────
+  // ── Auth loading screen ──────────────────────────────────────────────────
   if (authLoading) {
     return (
       <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
         <div style={{ width:28, height:28, border:`2px solid ${C.borderLight}`, borderTop:`2px solid ${C.accentLight}`, borderRadius:"50%", animation:"spin .8s linear infinite" }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
+  // ── Login screen ────────────────────────────────────────────────────────
   if (!authUser) {
     return (
       <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Inter',sans-serif" }}>
         <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes spin { to { transform:rotate(360deg); } }
           @keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
         `}</style>
         <div style={{
-          background: C.surface, border:`1px solid ${C.border}`, borderRadius:16,
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:16,
           padding:"48px 40px", maxWidth:400, width:"90%", textAlign:"center",
           boxShadow:"0 24px 56px rgba(0,0,0,0.6)", animation:"rise .3s ease",
         }}>
@@ -775,12 +728,10 @@ function App() {
               border:"1px solid #d1d5db", borderRadius:8,
               fontSize:14, fontWeight:600, cursor:"pointer",
               display:"flex", alignItems:"center", justifyContent:"center", gap:10,
-              fontFamily:"'Inter',sans-serif",
-              transition:"all .15s",
+              fontFamily:"'Inter',sans-serif", transition:"all .15s",
               boxShadow:"0 1px 3px rgba(0,0,0,0.1)",
             }}
           >
-            {/* Microsoft logo SVG */}
             <svg width="18" height="18" viewBox="0 0 21 21" fill="none">
               <rect x="0" y="0" width="10" height="10" fill="#f25022"/>
               <rect x="11" y="0" width="10" height="10" fill="#7fba00"/>
@@ -913,41 +864,41 @@ function App() {
 
         {/* Manager toggle — only visible to managers */}
         {authUser?.role === "manager" && (
-          <button
-            onClick={handleManagerToggle}
-            title={showManager ? "Switch to Agent View" : "Switch to Manager View"}
-            className="ag-action-btn"
-            style={{
-              boxSizing: "border-box",
-              width: "36px", height: "36px", borderRadius: "7px",
-              background: showManager ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)",
-              border: showManager ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)",
-              cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 0.15s, border-color 0.15s",
-              flexShrink: 0,
-            }}
-          >
-            {showManager ? (
-              <svg width="16" height="16" viewBox="0 0 24 24"
-                fill="none" stroke="#a5b4fc" strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{ display: "block", flexShrink: 0 }}
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24"
-                fill="none" stroke="#c9d1d9" strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{ display: "block", flexShrink: 0 }}
-              >
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-              </svg>
-            )}
-          </button>
+        <button
+          onClick={handleManagerToggle}
+          title={showManager ? "Switch to Agent View" : "Switch to Manager View"}
+          className="ag-action-btn"
+          style={{
+            boxSizing: "border-box",
+            width: "36px", height: "36px", borderRadius: "7px",
+            background: showManager ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)",
+            border: showManager ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.12)",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.15s, border-color 0.15s",
+            flexShrink: 0,
+          }}
+        >
+          {showManager ? (
+            <svg width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="#a5b4fc" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{ display: "block", flexShrink: 0 }}
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="#c9d1d9" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{ display: "block", flexShrink: 0 }}
+            >
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+            </svg>
+          )}
+        </button>
         )}
 
       </div>
@@ -1070,7 +1021,7 @@ function App() {
         <ManagerDashboard />
 
       /* ════════════════════════════════════════════════════════════════════
-          AGENT: START SHIFT (auto-populated from MS login)
+          AGENT: START / RESUME SHIFT
       ════════════════════════════════════════════════════════════════════ */
       ) : !selectedAgent ? (
         <div style={styles.loginWrapper}>

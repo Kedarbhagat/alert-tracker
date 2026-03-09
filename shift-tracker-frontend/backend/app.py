@@ -11,7 +11,13 @@ from routes.zendesk import zendesk_bp
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SECURE"] = True
+
+CORS(app, resources={r"/*": {"origins": [
+    "https://blue-pond-0c737da0.azurestaticapps.net"
+]}}, supports_credentials=True)
 
 app.register_blueprint(agent_bp)
 app.register_blueprint(manager_bp)
