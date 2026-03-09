@@ -382,12 +382,17 @@ function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate
                   value={shiftDetails.triaged_count ?? 0}
                   color={C.greenText}
                 />
+                <ModalDetailCard
+                  label="ZD Tickets Solved"
+                  value={shiftDetails.zd_ticket_count ?? 0}
+                  color="#818cf8"
+                />
               </div>
 
               {/* Tickets */}
               {shiftDetails.tickets?.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <SubLabel>Tickets ({shiftDetails.tickets.length})</SubLabel>
+                  <SubLabel>Dialpad Tickets ({shiftDetails.tickets.length})</SubLabel>
                   {shiftDetails.tickets.map((ticket, i) => (
                     <ModalItem key={i} accentColor={C.amberText}>
                       <span style={{
