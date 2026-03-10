@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request
+from flask import Flask, redirect, request, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
 import json, base64, urllib.parse
@@ -16,32 +16,34 @@ app = Flask(__name__)
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_SECURE"] = True
 
-CORS(app, resources={r"/*": {"origins": [
-    "https://blue-pond-0c737da03.6.azurestaticapps.net"
-]}}, supports_credentials=True)
-
 FRONTEND_URL = "https://blue-pond-0c737da03.6.azurestaticapps.net"
+
+CORS(app, resources={r"/*": {"origins": [FRONTEND_URL]}}, supports_credentials=True)
+
+# ── Handle ALL OPTIONS preflights before Azure auth can intercept them ───────
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        res = make_response("", 200)
+        res.headers["Access-Control-Allow-Origin"] = FRONTEND_URL
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        res.headers["Access-Control-Allow-Credentials"] = "true"
+        return res
 
 @app.route("/")
 @app.route("/auth-done")
 def auth_done():
     """After Azure AD login, extract email from Azure headers and pass to frontend."""
     try:
-        principal_header = request.headers.get("X-MS-CLIENT-PRINCIPAL")
         name_header = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
-        id_header = request.headers.get("X-MS-CLIENT-PRINCIPAL-ID")
+        principal_header = request.headers.get("X-MS-CLIENT-PRINCIPAL")
 
-        print(f"DEBUG auth-done: principal={bool(principal_header)}, name={name_header}, id={id_header}")
-
-        # Try X-MS-CLIENT-PRINCIPAL-NAME first (simplest — usually the email for AAD)
         if name_header and "@" in name_header:
-            print(f"DEBUG using name header as email: {name_header}")
             return redirect(f"{FRONTEND_URL}?email={urllib.parse.quote(name_header)}")
 
-        # Fall back to parsing full principal
         if principal_header:
             principal = json.loads(base64.b64decode(principal_header).decode("utf-8"))
-            print(f"DEBUG principal: {json.dumps(principal)[:500]}")
             claims = principal.get("claims", [])
             email = None
             for claim in claims:
@@ -55,12 +57,9 @@ def auth_done():
             if not email:
                 email = principal.get("userDetails", "")
             if email:
-                print(f"DEBUG using claims email: {email}")
                 return redirect(f"{FRONTEND_URL}?email={urllib.parse.quote(email)}")
     except Exception as e:
         print(f"Auth-done error: {e}")
-
-    print("DEBUG auth-done: no email found, redirecting without email")
     return redirect(FRONTEND_URL)
 
 app.register_blueprint(agent_bp)
