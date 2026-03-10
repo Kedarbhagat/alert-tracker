@@ -66,6 +66,8 @@ export const GLOBAL_CSS = `
     border-radius: 10px;
     transition: border-color .18s;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .ag-card:hover { border-color: ${C.accentBorder}; }
 
@@ -73,7 +75,7 @@ export const GLOBAL_CSS = `
   .ag-btn-primary {
     background: ${C.accent};
     border: none; color: #fff; border-radius: 7px;
-    padding: 10px 20px; width: 100%; margin-top: 14px;
+    padding: 10px 20px; width: 100%; margin-top: 8px;
     font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: background .15s;
   }
@@ -82,7 +84,7 @@ export const GLOBAL_CSS = `
   .ag-btn-alert {
     background: ${C.redFaint};
     border: 1px solid ${C.redBorder}; color: ${C.redText}; border-radius: 7px;
-    padding: 10px 20px; width: 100%; margin-top: 14px;
+    padding: 10px 20px; width: 100%; margin-top: 8px;
     font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all .15s;
   }
@@ -91,7 +93,7 @@ export const GLOBAL_CSS = `
   .ag-btn-save {
     background: ${C.greenFaint};
     border: 1px solid ${C.greenBorder}; color: ${C.greenText}; border-radius: 7px;
-    padding: 10px 20px; width: 100%; margin-top: 14px;
+    padding: 10px 20px; width: 100%; margin-top: 8px;
     font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all .15s;
   }
@@ -497,6 +499,9 @@ export const styles = {
 
   // ── Triage metric card ──
   metricsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "16px",
     marginBottom: "24px",
   },
 
@@ -542,9 +547,10 @@ export const styles = {
   // ── Grid + cards ──
   gridLayout: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: "20px",
     marginBottom: "24px",
+    alignItems: "start",
   },
 
   card: {}, // handled by .ag-card className
@@ -561,6 +567,9 @@ export const styles = {
 
   cardBody: {
     padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
   },
 
   label: {
@@ -568,8 +577,8 @@ export const styles = {
     fontSize: "11px",
     fontWeight: "700",
     color: C.inkLight,
-    marginBottom: "8px",
-    marginTop: "16px",
+    marginBottom: "6px",
+    marginTop: "12px",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
@@ -744,4 +753,4 @@ export const styles = {
     gap: "14px",
     marginTop: "28px",
   },
-};  
+};

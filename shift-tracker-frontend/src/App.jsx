@@ -807,6 +807,11 @@ const handleMicrosoftLogin = () => {
       )}
       <style>{`
         @keyframes ag-rise { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        .ag-card .ag-card-body > label:first-child,
+        .ag-card [class*="cardBody"] > label:first-child { margin-top: 0 !important; }
+        .ag-card .ag-card-body { display: flex; flex-direction: column; gap: 2px; }
+        @media (max-width: 900px) { .ag-grid-3col { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 600px) { .ag-grid-3col { grid-template-columns: 1fr !important; } }
         @keyframes ag-bell-shake {
           0%,100% { transform: rotate(0deg); }
           15%     { transform: rotate(14deg); }
@@ -1440,7 +1445,7 @@ const handleMicrosoftLogin = () => {
             </div>
 
             {/* ── 2×2 card grid ── */}
-            <div style={styles.gridLayout}>
+            <div style={styles.gridLayout} className="ag-grid-3col">
 
               {/* Ticket Management — Zendesk Live */}
               <div className="ag-card" style={{ gridColumn: "1 / -1" }}>
