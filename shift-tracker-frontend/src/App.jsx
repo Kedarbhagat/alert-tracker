@@ -212,6 +212,8 @@ function App() {
     try {
       const res = await fetch(`${API}/manager/auth/verify`, {
         method: "POST",
+        mode: "cors",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
