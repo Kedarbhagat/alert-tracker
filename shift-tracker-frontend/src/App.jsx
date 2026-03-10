@@ -213,11 +213,10 @@ function App() {
     }
   };
 
-  const handleMicrosoftLogin = () => {
-    // Redirect to backend Azure AD login — it handles everything and redirects back
-    const returnUrl = encodeURIComponent(window.location.origin);
-    window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${returnUrl}`;
-  };
+const handleMicrosoftLogin = () => {
+  const returnUrl = encodeURIComponent("https://blue-pond-0c737da0.azurestaticapps.net");
+  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${returnUrl}`;
+};
 
   const handleSignOut = () => {
     const returnUrl = encodeURIComponent(window.location.origin);
