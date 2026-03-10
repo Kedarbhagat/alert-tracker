@@ -40,6 +40,16 @@ const C = {
   purpleBorder: "rgba(167,139,250,0.3)",
 };
 
+// ── Inline styles for table cells (used with mgr-tbody) ─────────────────────
+const styles = {
+  td: {
+    padding: "12px 16px",
+    fontSize: 13,
+    fontFamily: "'Inter', sans-serif",
+    color: C.ink,
+  },
+};
+
 // ── Global CSS injected once ───────────────────────────────────────────────
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
