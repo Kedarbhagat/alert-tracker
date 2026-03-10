@@ -214,8 +214,7 @@ function App() {
   };
 
 const handleMicrosoftLogin = () => {
-  const returnUrl = encodeURIComponent("https://blue-pond-0c737da03.6.azurestaticapps.net");
-  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${returnUrl}`;
+  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=/auth-done`;
 };
 
   const handleSignOut = () => {
