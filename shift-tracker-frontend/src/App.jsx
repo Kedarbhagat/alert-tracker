@@ -168,23 +168,38 @@ function App() {
   const [zdDoneCount,   setZdDoneCount]     = useState(0);
 
   // ── On mount: check if already logged in via /.auth/me ──────────────────
- // ── On mount: check localStorage for email set by backend bridge
-useEffect(() => {
-  const checkSession = async () => {
-    try {
-      const savedEmail = localStorage.getItem("authEmail");
-      if (savedEmail) {
-        await verifyWithBackend(savedEmail);
-        return;
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        // Clean up #token hash if present
+        if (window.location.hash.startsWith("#token=")) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+
+        // Check if backend passed email via hash after Azure AD redirect
+        // (hash is used so Azure Static Web App auth doesn't intercept the redirect)
+        const hash = window.location.hash;
+        if (hash.startsWith("#email=")) {
+          const emailParam = decodeURIComponent(hash.slice(7));
+          window.history.replaceState(null, "", window.location.pathname);
+          await verifyWithBackend(emailParam);
+          return;
+        }
+
+        // Check localStorage for a previously verified session
+        const savedEmail = localStorage.getItem("authEmail");
+        if (savedEmail) {
+          await verifyWithBackend(savedEmail);
+          return;
+        }
+      } catch (e) {
+        console.warn("Session check failed:", e);
+      } finally {
+        setAuthLoading(false);
       }
-    } catch (e) {
-      console.warn("Session check failed:", e);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-  checkSession();
-}, []);
+    };
+    checkSession();
+  }, []);
 
   const verifyWithBackend = async (email) => {
     setAuthError(null);
