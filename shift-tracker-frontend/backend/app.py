@@ -27,10 +27,21 @@ FRONTEND_URL = "https://blue-pond-0c737da03.6.azurestaticapps.net"
 def auth_done():
     """After Azure AD login, extract email from Azure headers and pass to frontend."""
     try:
-        # Azure App Service injects this header with the authenticated user's info
         principal_header = request.headers.get("X-MS-CLIENT-PRINCIPAL")
+        name_header = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
+        id_header = request.headers.get("X-MS-CLIENT-PRINCIPAL-ID")
+
+        print(f"DEBUG auth-done: principal={bool(principal_header)}, name={name_header}, id={id_header}")
+
+        # Try X-MS-CLIENT-PRINCIPAL-NAME first (simplest — usually the email for AAD)
+        if name_header and "@" in name_header:
+            print(f"DEBUG using name header as email: {name_header}")
+            return redirect(f"{FRONTEND_URL}?email={urllib.parse.quote(name_header)}")
+
+        # Fall back to parsing full principal
         if principal_header:
             principal = json.loads(base64.b64decode(principal_header).decode("utf-8"))
+            print(f"DEBUG principal: {json.dumps(principal)[:500]}")
             claims = principal.get("claims", [])
             email = None
             for claim in claims:
@@ -44,9 +55,12 @@ def auth_done():
             if not email:
                 email = principal.get("userDetails", "")
             if email:
+                print(f"DEBUG using claims email: {email}")
                 return redirect(f"{FRONTEND_URL}?email={urllib.parse.quote(email)}")
     except Exception as e:
         print(f"Auth-done error: {e}")
+
+    print("DEBUG auth-done: no email found, redirecting without email")
     return redirect(FRONTEND_URL)
 
 app.register_blueprint(agent_bp)
