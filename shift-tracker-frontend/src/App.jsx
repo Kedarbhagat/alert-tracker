@@ -170,12 +170,27 @@ function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch(`${API}/.auth/me`, { credentials: "include" });
+        // Clean up #token hash if present
+        if (window.location.hash.startsWith("#token=")) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+
+        // Check if backend passed email as query param after redirect
+        const params = new URLSearchParams(window.location.search);
+        const emailParam = params.get("email");
+        if (emailParam) {
+          // Clean the URL
+          window.history.replaceState(null, "", window.location.pathname);
+          await verifyWithBackend(emailParam);
+          return;
+        }
+
+        // Otherwise check existing session via /.auth/me
+        const res = await fetch(`${API}/.auth/me`, { credentials: "include", mode: "cors" });
         if (!res.ok) { setAuthLoading(false); return; }
         const data = await res.json();
         const claims = data.clientPrincipal;
         if (!claims) { setAuthLoading(false); return; }
-        // Extract email from claims
         const emailClaim = claims.claims?.find(c =>
           c.typ === "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" ||
           c.typ === "preferred_username" ||
@@ -214,7 +229,8 @@ function App() {
   };
 
 const handleMicrosoftLogin = () => {
-  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=/auth-done`;
+  const returnUrl = encodeURIComponent("https://blue-pond-0c737da03.6.azurestaticapps.net");
+  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${returnUrl}`;
 };
 
   const handleSignOut = () => {
