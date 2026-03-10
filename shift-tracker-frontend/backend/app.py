@@ -31,6 +31,17 @@ def handle_preflight():
         res.headers["Access-Control-Allow-Credentials"] = "true"
         return res
 
+
+def _redirect_no_cache(url):
+    """Redirect with headers that prevent 304 caching."""
+    res = make_response("", 302)
+    res.headers["Location"] = url
+    res.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    res.headers["Pragma"] = "no-cache"
+    res.headers["Expires"] = "0"
+    return res
+
+
 @app.route("/")
 @app.route("/auth-done")
 def auth_done():
@@ -40,7 +51,7 @@ def auth_done():
         principal_header = request.headers.get("X-MS-CLIENT-PRINCIPAL")
 
         if name_header and "@" in name_header:
-            return redirect(f"{FRONTEND_URL}?email={urllib.parse.quote(name_header)}")
+            return _redirect_no_cache(f"{FRONTEND_URL}?email={urllib.parse.quote(name_header)}")
 
         if principal_header:
             principal = json.loads(base64.b64decode(principal_header).decode("utf-8"))
@@ -57,10 +68,10 @@ def auth_done():
             if not email:
                 email = principal.get("userDetails", "")
             if email:
-                return redirect(f"{FRONTEND_URL}?email={urllib.parse.quote(email)}")
+                return _redirect_no_cache(f"{FRONTEND_URL}?email={urllib.parse.quote(email)}")
     except Exception as e:
         print(f"Auth-done error: {e}")
-    return redirect(FRONTEND_URL)
+    return _redirect_no_cache(FRONTEND_URL)
 
 app.register_blueprint(agent_bp)
 app.register_blueprint(manager_bp)
