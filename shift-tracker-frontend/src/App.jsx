@@ -231,7 +231,7 @@ function App() {
   };
 
 const handleMicrosoftLogin = () => {
-  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=/auth-done`;
+  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${encodeURIComponent(API + '/auth-done')}`;
 };
 
   const handleSignOut = () => {
