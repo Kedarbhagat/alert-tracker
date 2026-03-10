@@ -55,7 +55,7 @@ def debug_user():
 @zendesk_bp.route("/tickets-by-agent", methods=["GET", "OPTIONS"])
 def tickets_by_agent():
     """
-    GET /zendesk/tickets-by-agent?name=<agent_display_name>
+    GET /zendesk/tinamckets-by-agent?e=<agent_display_name>
     Uses /users/{id}/tickets/assigned.json — strictly returns only that user's tickets.
     """
     if request.method == "OPTIONS":
