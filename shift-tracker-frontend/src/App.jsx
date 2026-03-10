@@ -1,8 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { styles, C, GLOBAL_CSS } from "./styles";
 import ManagerDashboard from "./mngr_dash";
+import { PublicClientApplication } from "@azure/msal-browser";
 
 const API = "https://alerttracker-ayfwbqbcbvbmh4g3.westeurope-01.azurewebsites.net";
+
+const msalConfig = {
+  auth: {
+    clientId: "efbddc50-ac5f-4016-9c85-fd52b29d2114", // ← replace with your actual client ID from Azure AD App Registration
+    authority: "https://login.microsoftonline.com/e7b03940-3fa9-4a41-a717-2581a9633754",
+    redirectUri: "https://blue-pond-0c737da03.6.azurestaticapps.net",
+  },
+  cache: { cacheLocation: "sessionStorage" },
+};
+
+const msalInstance = new PublicClientApplication(msalConfig);
 
 // ── Collapsible Done section for Zendesk tickets ──────────────────────────
 function CollapsibleDone({ tickets, renderTicket }) {
@@ -166,45 +178,31 @@ function App() {
   const [triagedCount, setTriagedCount]   = useState(0);
   const [zdDoneCount,   setZdDoneCount]     = useState(0);
 
-  // ── On mount: check if already logged in via /.auth/me ──────────────────
+  // ── On mount: initialize MSAL and check for existing session ─────────────
   useEffect(() => {
-    const checkSession = async () => {
+    const initAuth = async () => {
       try {
-        // Clean up #token hash if present
-        if (window.location.hash.startsWith("#token=")) {
-          window.history.replaceState(null, "", window.location.pathname);
-        }
-
-        // Check if backend passed email as query param after redirect
-        const params = new URLSearchParams(window.location.search);
-        const emailParam = params.get("email");
-        if (emailParam) {
-          // Clean the URL
-          window.history.replaceState(null, "", window.location.pathname);
-          await verifyWithBackend(emailParam);
+        await msalInstance.initialize();
+        // Handle redirect response if coming back from Microsoft login
+        const response = await msalInstance.handleRedirectPromise();
+        if (response?.account) {
+          const email = response.account.username;
+          if (email) await verifyWithBackend(email);
           return;
         }
-
-        // Otherwise check existing session via /.auth/me
-        const res = await fetch(`${API}/.auth/me`, { credentials: "include", mode: "cors" });
-        if (!res.ok) { setAuthLoading(false); return; }
-        const data = await res.json();
-        const claims = data.clientPrincipal;
-        if (!claims) { setAuthLoading(false); return; }
-        const emailClaim = claims.claims?.find(c =>
-          c.typ === "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" ||
-          c.typ === "preferred_username" ||
-          c.typ === "email"
-        );
-        const email = emailClaim?.val || claims.userDetails;
-        if (email) await verifyWithBackend(email);
+        // Check for existing silent session
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+          const email = accounts[0].username;
+          if (email) await verifyWithBackend(email);
+        }
       } catch (e) {
-        console.warn("Session check failed:", e);
+        console.warn("MSAL init failed:", e);
       } finally {
         setAuthLoading(false);
       }
     };
-    checkSession();
+    initAuth();
   }, []);
 
   const verifyWithBackend = async (email) => {
@@ -212,8 +210,6 @@ function App() {
     try {
       const res = await fetch(`${API}/manager/auth/verify`, {
         method: "POST",
-        mode: "cors",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
@@ -230,14 +226,26 @@ function App() {
     }
   };
 
-const handleMicrosoftLogin = () => {
-  const returnUrl = encodeURIComponent("https://blue-pond-0c737da03.6.azurestaticapps.net");
-  window.location.href = `${API}/.auth/login/aad?post_login_redirect_uri=${returnUrl}`;
-};
+  const handleMicrosoftLogin = async () => {
+    try {
+      await msalInstance.loginRedirect({
+        scopes: ["User.Read"],
+      });
+    } catch (e) {
+      setAuthError("Login failed: " + e.message);
+    }
+  };
 
-  const handleSignOut = () => {
-    const returnUrl = encodeURIComponent(window.location.origin);
-    window.location.href = `${API}/.auth/logout?post_logout_redirect_uri=${returnUrl}`;
+  const handleSignOut = async () => {
+    try {
+      const accounts = msalInstance.getAllAccounts();
+      await msalInstance.logoutRedirect({
+        account: accounts[0] || null,
+        postLogoutRedirectUri: "https://blue-pond-0c737da03.6.azurestaticapps.net",
+      });
+    } catch (e) {
+      console.warn("Logout error:", e);
+    }
   };
 
 
