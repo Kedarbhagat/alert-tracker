@@ -176,11 +176,11 @@ function App() {
           window.history.replaceState(null, "", window.location.pathname);
         }
 
-        // Check if backend passed email as query param after redirect
-        const params = new URLSearchParams(window.location.search);
-        const emailParam = params.get("email");
-        if (emailParam) {
-          // Clean the URL
+        // Check if backend passed email via hash after Azure AD redirect
+        // (hash is used so Azure Static Web App auth doesn't intercept the redirect)
+        const hash = window.location.hash;
+        if (hash.startsWith("#email=")) {
+          const emailParam = decodeURIComponent(hash.slice(7));
           window.history.replaceState(null, "", window.location.pathname);
           await verifyWithBackend(emailParam);
           return;

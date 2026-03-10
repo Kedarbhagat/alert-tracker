@@ -51,7 +51,7 @@ def auth_done():
         principal_header = request.headers.get("X-MS-CLIENT-PRINCIPAL")
 
         if name_header and "@" in name_header:
-            return _redirect_no_cache(f"{FRONTEND_URL}?email={urllib.parse.quote(name_header)}")
+            return _redirect_no_cache(f"{FRONTEND_URL}#email={urllib.parse.quote(name_header)}")
 
         if principal_header:
             principal = json.loads(base64.b64decode(principal_header).decode("utf-8"))
@@ -68,7 +68,7 @@ def auth_done():
             if not email:
                 email = principal.get("userDetails", "")
             if email:
-                return _redirect_no_cache(f"{FRONTEND_URL}?email={urllib.parse.quote(email)}")
+                return _redirect_no_cache(f"{FRONTEND_URL}#email={urllib.parse.quote(email)}")
     except Exception as e:
         print(f"Auth-done error: {e}")
     return _redirect_no_cache(FRONTEND_URL)
