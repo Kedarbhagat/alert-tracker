@@ -186,19 +186,12 @@ function App() {
           return;
         }
 
-        // Otherwise check existing session via /.auth/me
-        const res = await fetch(`${API}/.auth/me`, { credentials: "include", mode: "cors" });
-        if (!res.ok) { setAuthLoading(false); return; }
-        const data = await res.json();
-        const claims = data.clientPrincipal;
-        if (!claims) { setAuthLoading(false); return; }
-        const emailClaim = claims.claims?.find(c =>
-          c.typ === "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" ||
-          c.typ === "preferred_username" ||
-          c.typ === "email"
-        );
-        const email = emailClaim?.val || claims.userDetails;
-        if (email) await verifyWithBackend(email);
+        // Check localStorage for a previously verified session
+        const savedEmail = localStorage.getItem("authEmail");
+        if (savedEmail) {
+          await verifyWithBackend(savedEmail);
+          return;
+        }
       } catch (e) {
         console.warn("Session check failed:", e);
       } finally {
@@ -224,6 +217,8 @@ function App() {
         return;
       }
       setAuthUser(data.user);
+      // Persist email so page refresh doesn't require re-login
+      localStorage.setItem("authEmail", email);
       // Don't auto-route — let user choose on the landing screen
     } catch (e) {
       setAuthError("Could not verify account: " + e.message);
@@ -235,6 +230,7 @@ const handleMicrosoftLogin = () => {
 };
 
   const handleSignOut = () => {
+    localStorage.removeItem("authEmail");
     const returnUrl = encodeURIComponent(window.location.origin);
     window.location.href = `${API}/.auth/logout?post_logout_redirect_uri=${returnUrl}`;
   };
