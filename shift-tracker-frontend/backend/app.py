@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -16,8 +16,16 @@ app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_SECURE"] = True
 
 CORS(app, resources={r"/*": {"origins": [
-    "https://blue-pond-0c737da0.azurestaticapps.net"
+    "https://blue-pond-0c737da03.6.azurestaticapps.net"
 ]}}, supports_credentials=True)
+
+FRONTEND_URL = "https://blue-pond-0c737da03.6.azurestaticapps.net"
+
+@app.route("/")
+@app.route("/auth-done")
+def auth_done():
+    """After Azure AD login, redirect back to the frontend."""
+    return redirect(FRONTEND_URL)
 
 app.register_blueprint(agent_bp)
 app.register_blueprint(manager_bp)
