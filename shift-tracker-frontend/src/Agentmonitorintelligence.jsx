@@ -374,7 +374,11 @@ function ShiftMonitorModal({ shiftId, api, onClose }) {
   useEffect(() => {
     setLoading(true); setErr(null); setData(null);
     fetch(`${api}/manager/shift-details/${shiftId}`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+        return body;
+      })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setErr(e.message); setLoading(false); });
   }, [shiftId, api]);
@@ -549,7 +553,12 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
   const load = useCallback(() => {
     setLoading(true); setErr(null);
     fetch(`${api}/manager/agent-detail/${agent.agent_id}?days=${days}`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        const errMsg = body?.error || `HTTP ${r.status}`;
+        if (!r.ok) throw new Error(errMsg);
+        return body;
+      })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setErr(e.message); setLoading(false); });
   }, [agent.agent_id, api, days, refreshKey]);
@@ -759,7 +768,11 @@ function MonitorIntelligenceView({ api, days, refreshKey = 0 }) {
   useEffect(() => {
     setLoading(true); setErr(null);
     fetch(`${api}/manager/advanced-analytics?days=${days}`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+        return body;
+      })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setErr(e.message); setLoading(false); });
   }, [api, days, refreshKey]);
@@ -856,7 +869,11 @@ export default function AgentMonitorIntelligence({ api }) {
   const loadAgents = useCallback(() => {
     setAgLoading(true); setAgErr(null);
     fetch(`${api}/manager/advanced-analytics?days=${days}`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+        return body;
+      })
       .then(d => { setAgents((d.agent_rankings||[]).map((a,i)=>({...a,_idx:i}))); setAgLoading(false); })
       .catch(e => { setAgErr(e.message); setAgLoading(false); });
   }, [api, days]);

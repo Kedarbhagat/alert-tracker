@@ -1,5 +1,7 @@
 """Manager endpoints — monitoring, shifts, analytics."""
 import statistics
+import sys
+import traceback
 from datetime import datetime, timedelta, date
 from flask import Blueprint, request, jsonify
 from db import db, to_ist
@@ -291,7 +293,10 @@ def get_advanced_analytics():
             "coverage_analysis": coverage_analysis, "insights": insights,
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        err_msg = str(e)
+        print(f"[manager] advanced-analytics error: {err_msg}", flush=True)
+        traceback.print_exc(file=sys.stdout)
+        return jsonify({"error": err_msg}), 500
 
 
 @manager_bp.route("/agent-detail/<agent_id>", methods=["GET", "OPTIONS"])
@@ -358,7 +363,10 @@ def get_agent_detail(agent_id):
             "recent_shifts": recent_shifts,
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        err_msg = str(e)
+        print(f"[manager] agent-detail/{agent_id} error: {err_msg}", flush=True)
+        traceback.print_exc(file=sys.stdout)
+        return jsonify({"error": err_msg}), 500
 
 
 @manager_bp.route("/handovers", methods=["GET", "OPTIONS"])
