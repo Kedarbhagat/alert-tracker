@@ -350,6 +350,11 @@ def get_agent_detail(agent_id):
             """, p)
             k = cur.fetchone()
 
+            ticket_trend = trend("tickets")
+            alert_trend = trend("alerts")
+            incident_trend = trend("incident_status")
+            adhoc_trend = trend("adhoc_tasks")
+
         return jsonify({
             "agent_id": agent_id,
             "shift_count": int(k[0] or 0), "total_triaged": int(k[1] or 0),
@@ -358,8 +363,8 @@ def get_agent_detail(agent_id):
             "avg_triaged_per_shift": round(float(k[6] or 0), 2), "avg_shift_hours": round(float(k[7] or 0), 2),
             "total_zd_tickets": int(k[8] or 0),
             "alert_breakdown": alert_breakdown, "monitor_breakdown": monitor_breakdown,
-            "ticket_trend": trend("tickets"), "alert_trend": trend("alerts"),
-            "incident_trend": trend("incident_status"), "adhoc_trend": trend("adhoc_tasks"),
+            "ticket_trend": ticket_trend, "alert_trend": alert_trend,
+            "incident_trend": incident_trend, "adhoc_trend": adhoc_trend,
             "recent_shifts": recent_shifts,
         })
     except Exception as e:
