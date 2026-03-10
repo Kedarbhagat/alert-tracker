@@ -63,41 +63,49 @@ export const GLOBAL_CSS = `
   .ag-card {
     background: ${C.surface};
     border: 1px solid ${C.border};
-    border-radius: 10px;
-    transition: border-color .18s;
+    border-radius: 12px;
+    transition: border-color .2s, box-shadow .2s;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
     display: flex;
     flex-direction: column;
   }
-  .ag-card:hover { border-color: ${C.accentBorder}; }
+  .ag-card:hover {
+    border-color: rgba(59,130,246,0.4);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(59,130,246,0.1);
+  }
 
   /* ── Buttons ── */
   .ag-btn-primary {
-    background: ${C.accent};
-    border: none; color: #fff; border-radius: 7px;
-    padding: 10px 20px; width: 100%; margin-top: 8px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: none; color: #fff; border-radius: 8px;
+    padding: 10px 20px; width: 100%; margin-top: 12px;
     font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: background .15s;
+    cursor: pointer; transition: all .15s;
+    box-shadow: 0 1px 3px rgba(37,99,235,0.3);
+    letter-spacing: 0.01em;
   }
-  .ag-btn-primary:hover { background: #1d4ed8; }
+  .ag-btn-primary:hover { background: linear-gradient(135deg, #1d4ed8, #1e40af); box-shadow: 0 2px 8px rgba(37,99,235,0.4); }
 
   .ag-btn-alert {
-    background: ${C.redFaint};
-    border: 1px solid ${C.redBorder}; color: ${C.redText}; border-radius: 7px;
-    padding: 10px 20px; width: 100%; margin-top: 8px;
+    background: rgba(220,38,38,0.1);
+    border: 1px solid rgba(220,38,38,0.35); color: #f87171; border-radius: 8px;
+    padding: 10px 20px; width: 100%; margin-top: 12px;
     font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all .15s;
+    letter-spacing: 0.01em;
   }
-  .ag-btn-alert:hover { background: rgba(218,54,51,0.22); }
+  .ag-btn-alert:hover { background: rgba(220,38,38,0.2); border-color: rgba(220,38,38,0.6); }
 
   .ag-btn-save {
-    background: ${C.greenFaint};
-    border: 1px solid ${C.greenBorder}; color: ${C.greenText}; border-radius: 7px;
-    padding: 10px 20px; width: 100%; margin-top: 8px;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.3); color: #4ade80; border-radius: 8px;
+    padding: 10px 20px; width: 100%; margin-top: 12px;
     font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all .15s;
+    letter-spacing: 0.01em;
   }
-  .ag-btn-save:hover { background: rgba(35,134,54,0.25); }
+  .ag-btn-save:hover { background: rgba(34,197,94,0.2); }
 
   .ag-btn-ghost {
     background: transparent;
@@ -158,14 +166,17 @@ export const GLOBAL_CSS = `
 
   /* ── Inputs / textareas / selects ── */
   .ag-input {
-    background: ${C.bgAlt};
-    border: 1px solid ${C.border}; border-radius: 7px;
-    padding: 10px 14px; width: 100%;
+    background: rgba(13,17,23,0.8);
+    border: 1px solid ${C.border}; border-radius: 8px;
+    padding: 9px 12px; width: 100%;
     font-size: 13px; font-family: 'Inter', sans-serif; color: ${C.ink};
-    outline: none; transition: border-color .15s; resize: vertical;
+    outline: none; transition: border-color .15s, box-shadow .15s; resize: vertical;
     box-sizing: border-box;
   }
-  .ag-input:focus { border-color: ${C.accentLight}; }
+  .ag-input:focus {
+    border-color: ${C.accentLight};
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
   .ag-input::placeholder { color: ${C.inkLight}; }
 
   /* date/time picker dark chrome */
@@ -187,10 +198,11 @@ export const GLOBAL_CSS = `
 
   /* ── Card header ── */
   .ag-card-header {
-    padding: 16px 20px;
+    padding: 14px 20px;
     border-bottom: 1px solid ${C.border};
     display: flex; justify-content: space-between; align-items: center;
-    background: ${C.borderLight};
+    background: linear-gradient(180deg, rgba(33,38,45,0.9) 0%, rgba(22,27,34,0.6) 100%);
+    gap: 8px;
   }
 
   /* ── Badges ── */
@@ -268,12 +280,13 @@ export const GLOBAL_CSS = `
     z-index: 10000;
   }
   .ag-confirm-box {
-    background: ${C.surface}; border: 1px solid ${C.border};
-    border-radius: 14px; padding: 36px 32px;
-    max-width: 380px; width: 90%;
-    box-shadow: 0 24px 56px rgba(0,0,0,0.7);
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 16px; padding: 36px 32px;
+    max-width: 400px; width: 90%;
+    box-shadow: 0 32px 64px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
     text-align: center;
-    animation: agent-rise .2s ease;
+    animation: agent-rise .25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 `;
 
@@ -501,7 +514,7 @@ export const styles = {
   metricsRow: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "16px",
+    gap: "18px",
     marginBottom: "24px",
   },
 
@@ -548,7 +561,7 @@ export const styles = {
   gridLayout: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "20px",
+    gap: "18px",
     marginBottom: "24px",
     alignItems: "start",
   },
@@ -558,18 +571,19 @@ export const styles = {
   cardHeader: {}, // handled by .ag-card-header className
 
   cardTitle: {
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "700",
     color: C.ink,
     margin: "0",
-    letterSpacing: "-0.01em",
+    letterSpacing: "0em",
   },
 
   cardBody: {
-    padding: "20px",
+    padding: "18px 20px 20px",
     display: "flex",
     flexDirection: "column",
-    gap: "2px",
+    gap: "4px",
+    flex: 1,
   },
 
   label: {
@@ -577,8 +591,8 @@ export const styles = {
     fontSize: "11px",
     fontWeight: "700",
     color: C.inkLight,
-    marginBottom: "6px",
-    marginTop: "12px",
+    marginBottom: "8px",
+    marginTop: "16px",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
