@@ -278,33 +278,21 @@ def update_zd_count():
         with db() as cur:
             # Update the aggregate solved count for this shift
             cur.execute(
-                "UPDATE shifts SET zd_ticket_count=%s WHERE id=%s RETURNING zd_ticket_count, login_time",
+                "UPDATE shifts SET zd_ticket_count=%s WHERE id=%s RETURNING zd_ticket_count",
                 (max(0, int(count)), shift_id)
             )
             row = cur.fetchone()
             if not row:
                 return jsonify({"error": "Shift not found"}), 404
 
-            zd_count, login_time = row[0], row[1]
+            zd_count = row[0]
 
-            # Log only Zendesk tickets whose updated_at is ON or AFTER this shift's login_time
-            # so that lifetime solved tickets do not appear in this shift's details.
+            # Log Zendesk tickets against this shift (deduped per shift_id + ticket_number).
+            # Frontend already limits this to tickets counted as solved during this shift.
             tickets = data.get("tickets") or []
             for t in tickets:
                 number = str(t.get("id") or t.get("number") or "").strip()
-                updated_raw = t.get("updated_at")
-                if not number or not updated_raw or not login_time:
-                    continue
-
-                try:
-                    # Zendesk timestamps are ISO 8601, often with a trailing 'Z' or offset.
-                    from datetime import datetime
-                    ts = updated_raw.replace("Z", "+00:00") if isinstance(updated_raw, str) else None
-                    updated_at = datetime.fromisoformat(ts) if ts else None
-                except Exception:
-                    updated_at = None
-
-                if not updated_at or updated_at < login_time:
+                if not number:
                     continue
 
                 cur.execute(
