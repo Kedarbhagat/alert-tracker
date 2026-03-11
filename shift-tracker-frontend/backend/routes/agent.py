@@ -39,7 +39,30 @@ def _shift_rows(cur, shift_id):
                         for r in q("SELECT description, handover_to, created_at FROM handovers WHERE shift_id=%s ORDER BY created_at")],
         "maintenance": [{"description": r[0], "created_at": to_ist(r[1])}
                         for r in q("SELECT description, created_at FROM maintenance_logs WHERE shift_id=%s ORDER BY created_at")],
+        "dialpad_tickets": [{"ticket_number": r[0], "description": r[1], "created_at": to_ist(r[2])}
+                            for r in q("SELECT ticket_number, description, created_at FROM dialpad_tickets WHERE shift_id=%s ORDER BY created_at")],
     }
+
+
+@agent_bp.route("/add-dialpad", methods=["POST", "OPTIONS"])
+def add_dialpad():
+    if request.method == "OPTIONS":
+        return "", 200
+    data = request.json or {}
+    shift_id = data.get("shift_id")
+    ticket_number = (data.get("ticket_number") or "").strip()
+    description = (data.get("description") or "").strip()
+    if not shift_id or not ticket_number:
+        return jsonify({"error": "shift_id and ticket_number are required"}), 400
+    try:
+        with db() as cur:
+            cur.execute(
+                "INSERT INTO dialpad_tickets (shift_id, ticket_number, description) VALUES (%s,%s,%s)",
+                (shift_id, ticket_number, description),
+            )
+        return jsonify({"message": "Dialpad ticket added successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── shift lifecycle ───────────────────────────────────────────────────────────

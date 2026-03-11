@@ -50,6 +50,8 @@ def _shift_activities(cur, shift_id):
                         for r in q("SELECT description,handover_to,created_at FROM handovers WHERE shift_id=%s ORDER BY created_at")],
         "maintenance": [{"description": r[0], "created_at": to_ist(r[1])}
                         for r in q("SELECT description,created_at FROM maintenance_logs WHERE shift_id=%s ORDER BY created_at")],
+        "dialpad_tickets": [{"ticket_number": r[0], "description": r[1], "created_at": to_ist(r[2])}
+                            for r in q("SELECT ticket_number,description,created_at FROM dialpad_tickets WHERE shift_id=%s ORDER BY created_at")],
     }
 
 
