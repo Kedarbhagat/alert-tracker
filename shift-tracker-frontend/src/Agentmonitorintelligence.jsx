@@ -629,15 +629,15 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
         <>
           {/* KPI strip */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
-            <KpiPill label="Shifts"         value={data.shift_count}           color={C.accentLight} delay={0}    />
-            <KpiPill label="Cases Triaged"  value={data.total_triaged}         color={C.greenText}   delay={0.04} />
-            <KpiPill label="Avg / Shift"    value={data.avg_triaged_per_shift} color={C.amberText}   delay={0.08} />
-            <KpiPill label="Avg Hours"      value={`${data.avg_shift_hours}h`} color={C.indigo}      delay={0.12} />
-            <KpiPill label="Alerts"         value={data.total_alerts}          color={C.redText}     delay={0.16} />
-            <KpiPill label="HIP Tickets"    value={data.total_tickets}         color={C.amberText}   delay={0.20} />
-            <KpiPill label="Incidents"      value={data.total_incidents}       color={C.purple}      delay={0.24} />
-            <KpiPill label="Ad-hoc Tasks"   value={data.total_adhoc}           color={C.inkMid}      delay={0.28} />
-            <KpiPill label="Dialpad"        value={data.total_dialpad}         color={C.accentLight} delay={0.32} />
+            <KpiPill label="Shifts"            value={data.shift_count}           color={C.accentLight} delay={0}    />
+            <KpiPill label="Cases Triaged"     value={data.total_triaged}         color={C.greenText}   delay={0.04} />
+            <KpiPill label="Avg / Shift"       value={data.avg_triaged_per_shift} color={C.amberText}   delay={0.08} />
+            <KpiPill label="Avg Hours"         value={`${data.avg_shift_hours}h`} color={C.indigo}      delay={0.12} />
+            <KpiPill label="Alerts"            value={data.total_alerts}          color={C.redText}     delay={0.16} />
+            <KpiPill label="ZD Tickets Solved" value={data.total_zd_tickets}      color="#818cf8"       delay={0.20} />
+            <KpiPill label="Incidents"         value={data.total_incidents}       color={C.purple}      delay={0.24} />
+            <KpiPill label="Ad-hoc Tasks"      value={data.total_adhoc}           color={C.inkMid}      delay={0.28} />
+            <KpiPill label="Dialpad"           value={data.total_dialpad}         color={C.accentLight} delay={0.32} />
           </div>
 
           {/* Sub-tabs */}
