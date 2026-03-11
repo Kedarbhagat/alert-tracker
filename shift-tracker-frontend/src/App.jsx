@@ -165,7 +165,7 @@ function App() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [shiftId, setShiftId]             = useState(null);
   const [triagedCount, setTriagedCount]   = useState(0);
-  const [zdDoneCount,   setZdDoneCount]     = useState(0);
+  const [zdDoneCount,   setZdDoneCount]   = useState(0);
 
   // ── On mount: check if already logged in via /.auth/me ──────────────────
   useEffect(() => {
@@ -355,6 +355,7 @@ const handleMicrosoftLogin = () => {
                 setActiveAgentId(s.agentId || null);
                 setShiftId(s.shiftId);
                 setTriagedCount(data.triaged_count || s.triagedCount || 0);
+                setZdDoneCount(data.zd_ticket_count ?? s.zdDoneCount ?? 0);
               } else {
                 // Shift is no longer active on the server — clear stale local data
                 localStorage.removeItem("activeShift");
@@ -366,6 +367,7 @@ const handleMicrosoftLogin = () => {
               setActiveAgentId(s.agentId || null);
               setShiftId(s.shiftId);
               setTriagedCount(s.triagedCount || 0);
+              setZdDoneCount(s.zdDoneCount || 0);
             });
         }
       } catch {
@@ -391,7 +393,11 @@ const handleMicrosoftLogin = () => {
 
     let shiftData;
     if (checkData.has_active_shift) {
-      shiftData = { shift_id: checkData.shift_id, triaged_count: checkData.triaged_count };
+      shiftData = {
+        shift_id: checkData.shift_id,
+        triaged_count: checkData.triaged_count,
+        zd_ticket_count: checkData.zd_ticket_count ?? 0,
+      };
     } else {
       const r  = await fetch(`${API}/start-shift`, {
         method: "POST",
@@ -406,11 +412,13 @@ const handleMicrosoftLogin = () => {
     setActiveAgentId(agent.id);
     setShiftId(shiftData.shift_id);
     setTriagedCount(shiftData.triaged_count || 0);
+    setZdDoneCount(shiftData.zd_ticket_count || 0);
     localStorage.setItem("activeShift", JSON.stringify({
       agentName: agent.name,
       agentId: agent.id,
       shiftId: shiftData.shift_id,
       triagedCount: shiftData.triaged_count || 0,
+      zdDoneCount: shiftData.zd_ticket_count || 0,
     }));
   };
 
@@ -454,11 +462,14 @@ const handleMicrosoftLogin = () => {
       const incoming = data.tickets || [];
 
       const DONE_STATUSES = ["solved", "closed"];
-      const currentDoneCount = incoming.filter(t => DONE_STATUSES.includes(t.status)).length;
+      const solvedTickets = incoming.filter(t => DONE_STATUSES.includes(t.status));
+      const currentDoneCount = solvedTickets.length;
 
-      // Baseline: snapshot done count at shift start so we only count THIS shift
+      // Baseline: snapshot done count at shift start so we only count THIS shift.
+      // If we already have a persisted value from the backend (zdDoneCount),
+      // align the baseline so refreshing the page does not reset the count.
       if (zdBaselineDone.current === null) {
-        zdBaselineDone.current = currentDoneCount;
+        zdBaselineDone.current = currentDoneCount - (zdDoneCount || 0);
       }
       const doneDuringShift = Math.max(0, currentDoneCount - zdBaselineDone.current);
       setZdDoneCount(doneDuringShift);
@@ -468,7 +479,14 @@ const handleMicrosoftLogin = () => {
         fetch(`${API}/update-zd-count`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shift_id: shiftIdRef.current, count: doneDuringShift }),
+          body: JSON.stringify({
+            shift_id: shiftIdRef.current,
+            count: doneDuringShift,
+            tickets: solvedTickets.map(t => ({
+              id: t.id,
+              subject: t.subject,
+            })),
+          }),
         }).catch(() => {});
       }
 

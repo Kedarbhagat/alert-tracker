@@ -52,12 +52,18 @@ def check_active_shift():
     try:
         with db() as cur:
             cur.execute(
-                "SELECT id, triaged_count FROM shifts WHERE agent_id=%s AND logout_time IS NULL ORDER BY login_time DESC LIMIT 1",
+                "SELECT id, triaged_count, COALESCE(zd_ticket_count,0) FROM shifts WHERE agent_id=%s AND logout_time IS NULL ORDER BY login_time DESC LIMIT 1",
                 (agent_id,)
             )
             row = cur.fetchone()
         if row:
-            return jsonify({"has_active_shift": True, "shift_id": row[0], "triaged_count": row[1], "agent_id": agent_id})
+            return jsonify({
+                "has_active_shift": True,
+                "shift_id": row[0],
+                "triaged_count": row[1],
+                "zd_ticket_count": int(row[2] or 0),
+                "agent_id": agent_id,
+            })
         return jsonify({"has_active_shift": False, "agent_id": agent_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -252,6 +258,23 @@ def update_zd_count():
                 (max(0, int(count)), shift_id)
             )
             row = cur.fetchone()
+            # Optionally log individual Zendesk tickets into the tickets table so they
+            # appear in shift details alongside manually added HIP tickets.
+            tickets = data.get("tickets") or []
+            for t in tickets:
+                number = str(t.get("id") or t.get("number") or "").strip()
+                if not number:
+                    continue
+                cur.execute(
+                    "SELECT 1 FROM tickets WHERE shift_id=%s AND ticket_number=%s",
+                    (shift_id, number),
+                )
+                if cur.fetchone():
+                    continue
+                cur.execute(
+                    "INSERT INTO tickets (shift_id, ticket_number, description) VALUES (%s,%s,%s)",
+                    (shift_id, number, t.get("subject") or t.get("description") or ""),
+                )
         if not row: return jsonify({"error": "Shift not found"}), 404
         return jsonify({"zd_ticket_count": row[0]})
     except Exception as e:
