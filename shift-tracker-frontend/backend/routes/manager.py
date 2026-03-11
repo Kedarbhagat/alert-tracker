@@ -116,20 +116,23 @@ def get_analytics():
         with db() as cur:
             def s(sql): cur.execute(sql); return cur.fetchone()[0]
             def r(sql): cur.execute(sql); return cur.fetchone()
-            active  = s("SELECT COUNT(*) FROM shifts WHERE logout_time IS NULL")
-            today   = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE DATE(login_time)=CURRENT_DATE")
-            week    = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('week',CURRENT_DATE)")
-            month   = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('month',CURRENT_DATE)")
-            avg_p   = s("SELECT AVG(triaged_count/NULLIF(EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600,0)) FROM shifts WHERE logout_time IS NOT NULL AND EXTRACT(EPOCH FROM (logout_time-login_time))/3600>0.5 AND login_time>=CURRENT_DATE-INTERVAL '30 days'")
-            alerts  = s("SELECT COUNT(*) FROM alerts WHERE DATE(created_at)=CURRENT_DATE")
-            tickets = s("SELECT COUNT(*) FROM tickets WHERE DATE(created_at)=CURRENT_DATE")
+            active        = s("SELECT COUNT(*) FROM shifts WHERE logout_time IS NULL")
+            today         = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE DATE(login_time)=CURRENT_DATE")
+            week          = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('week',CURRENT_DATE)")
+            month         = r("SELECT COUNT(DISTINCT agent_id),COUNT(*),COALESCE(SUM(triaged_count),0),COALESCE(SUM(zd_ticket_count),0) FROM shifts WHERE login_time>=DATE_TRUNC('month',CURRENT_DATE)")
+            avg_p         = s("SELECT AVG(triaged_count/NULLIF(EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600,0)) FROM shifts WHERE logout_time IS NOT NULL AND EXTRACT(EPOCH FROM (logout_time-login_time))/3600>0.5 AND login_time>=CURRENT_DATE-INTERVAL '30 days'")
+            alerts        = s("SELECT COUNT(*) FROM alerts WHERE DATE(created_at)=CURRENT_DATE")
+            tickets       = s("SELECT COUNT(*) FROM tickets WHERE DATE(created_at)=CURRENT_DATE")
+            dialpad_today = s("SELECT COUNT(*) FROM dialpad_tickets WHERE DATE(created_at)=CURRENT_DATE")
         return jsonify({
             "active_now": active,
             "today":  {"agents_active": today[0] or 0, "total_shifts": today[1] or 0, "cases_triaged": today[2] or 0, "zd_tickets": today[3] or 0},
             "week":   {"agents_active": week[0]  or 0, "total_shifts": week[1]  or 0, "cases_triaged": week[2]  or 0, "zd_tickets": week[3]  or 0},
             "month":  {"agents_active": month[0] or 0, "total_shifts": month[1] or 0, "cases_triaged": month[2] or 0, "zd_tickets": month[3] or 0},
             "avg_productivity": round(float(avg_p or 0), 2),
-            "alerts_today": alerts or 0, "tickets_today": tickets or 0,
+            "alerts_today": alerts or 0,
+            "tickets_today": tickets or 0,
+            "dialpad_today": dialpad_today or 0,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
