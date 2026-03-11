@@ -485,6 +485,7 @@ const handleMicrosoftLogin = () => {
             tickets: solvedTickets.map(t => ({
               id: t.id,
               subject: t.subject,
+              updated_at: t.updated_at,
             })),
           }),
         }).catch(() => {});

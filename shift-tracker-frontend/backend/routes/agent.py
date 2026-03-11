@@ -253,29 +253,49 @@ def update_zd_count():
         return jsonify({"error": "shift_id and count are required"}), 400
     try:
         with db() as cur:
+            # Update the aggregate solved count for this shift
             cur.execute(
-                "UPDATE shifts SET zd_ticket_count=%s WHERE id=%s RETURNING zd_ticket_count",
+                "UPDATE shifts SET zd_ticket_count=%s WHERE id=%s RETURNING zd_ticket_count, login_time",
                 (max(0, int(count)), shift_id)
             )
             row = cur.fetchone()
-            # Optionally log individual Zendesk tickets into the tickets table so they
-            # appear in shift details alongside manually added HIP tickets.
+            if not row:
+                return jsonify({"error": "Shift not found"}), 404
+
+            zd_count, login_time = row[0], row[1]
+
+            # Log only Zendesk tickets whose updated_at is ON or AFTER this shift's login_time
+            # so that lifetime solved tickets do not appear in this shift's details.
             tickets = data.get("tickets") or []
             for t in tickets:
                 number = str(t.get("id") or t.get("number") or "").strip()
-                if not number:
+                updated_raw = t.get("updated_at")
+                if not number or not updated_raw or not login_time:
                     continue
+
+                try:
+                    # Zendesk timestamps are ISO 8601, often with a trailing 'Z' or offset.
+                    from datetime import datetime
+                    ts = updated_raw.replace("Z", "+00:00") if isinstance(updated_raw, str) else None
+                    updated_at = datetime.fromisoformat(ts) if ts else None
+                except Exception:
+                    updated_at = None
+
+                if not updated_at or updated_at < login_time:
+                    continue
+
                 cur.execute(
                     "SELECT 1 FROM tickets WHERE shift_id=%s AND ticket_number=%s",
                     (shift_id, number),
                 )
                 if cur.fetchone():
                     continue
+
                 cur.execute(
                     "INSERT INTO tickets (shift_id, ticket_number, description) VALUES (%s,%s,%s)",
                     (shift_id, number, t.get("subject") or t.get("description") or ""),
                 )
-        if not row: return jsonify({"error": "Shift not found"}), 404
-        return jsonify({"zd_ticket_count": row[0]})
+
+        return jsonify({"zd_ticket_count": zd_count})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
