@@ -221,13 +221,14 @@ def get_shift_summary(shift_id):
     if request.method == "OPTIONS": return "", 200
     try:
         with db() as cur:
-            cur.execute("SELECT agent_id, login_time, logout_time, triaged_count FROM shifts WHERE id=%s", (shift_id,))
+            cur.execute("SELECT agent_id, login_time, logout_time, triaged_count, COALESCE(zd_ticket_count,0) FROM shifts WHERE id=%s", (shift_id,))
             s = cur.fetchone()
             if not s: return jsonify({"error": "Shift not found"}), 404
             data = _shift_rows(cur, shift_id)
         return jsonify({
             "agent_id": str(s[0]), "start_time": to_ist(s[1]), "end_time": to_ist(s[2]),
             "triaged_count": s[3] or 0,
+            "zd_ticket_count": int(s[4] or 0),
             "ticket_count": len(data["tickets"]), "alert_count": len(data["alerts"]),
             "incident_count": len(data["incidents"]), "adhoc_count": len(data["adhoc_tasks"]),
             "handover_count": len(data["handovers"]), "maintenance_count": len(data["maintenance"]),

@@ -1173,7 +1173,8 @@ const handleMicrosoftLogin = () => {
 
               <div style={styles.summaryStats}>
                 {[
-                  { label: "Triaged",    value: summaryData.triaged_count    },
+                  { label: "Cases Triaged", value: summaryData.triaged_count  },
+                  { label: "Tickets Solved", value: summaryData.zd_ticket_count ?? 0 },
                   { label: "Tickets",    value: summaryData.ticket_count     },
                   { label: "Alerts",     value: summaryData.alert_count      },
                   { label: "Incidents",  value: summaryData.incident_count   },
@@ -1399,7 +1400,7 @@ const handleMicrosoftLogin = () => {
             <div style={styles.metricsRow}>
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
-                  <span style={styles.metricLabel}>Closed Tickets</span>
+                  <span style={styles.metricLabel}>Cases Triaged</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
@@ -1423,7 +1424,7 @@ const handleMicrosoftLogin = () => {
               {/* Tickets Handled — Zendesk */}
               <div style={styles.metricCard}>
                 <div style={styles.metricHeader}>
-                  <span style={styles.metricLabel}>Tickets Handled</span>
+                  <span style={styles.metricLabel}>Tickets Solved</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
