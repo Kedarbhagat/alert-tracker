@@ -436,7 +436,6 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
     { label:"Shifts",        value:agent.shift_count      || 0, color:C.accentLight },
     { label:"Triaged",       value:agent.total_triaged    || 0, color:C.greenText   },
     { label:"ZD Tickets Solved", value:agent.total_zd_tickets || 0, color:"#818cf8" },
-    { label:"HIP Tickets",   value:agent.total_tickets    || 0, color:C.amberText   },
     { label:"Alerts",        value:agent.total_alerts     || 0, color:C.redText     },
     { label:"Incidents",     value:agent.total_incidents  || 0, color:"#a78bfa"     },
     { label:"Ad-hoc",        value:agent.total_adhoc      || 0, color:C.inkMid      },

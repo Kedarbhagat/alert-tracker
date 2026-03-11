@@ -355,6 +355,15 @@ def get_agent_detail(agent_id):
             """, p)
             k = cur.fetchone()
 
+            # Total Dialpad tickets for this agent over the selected date range
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM dialpad_tickets d
+                JOIN shifts s ON s.id=d.shift_id
+                WHERE s.agent_id=%s AND s.login_time>=%s AND s.login_time<=%s
+            """, p)
+            total_dialpad = cur.fetchone()[0] or 0
+
             ticket_trend = trend("tickets")
             alert_trend = trend("alerts")
             incident_trend = trend("incident_status")
@@ -367,6 +376,7 @@ def get_agent_detail(agent_id):
             "total_incidents": int(k[4] or 0), "total_adhoc": int(k[5] or 0),
             "avg_triaged_per_shift": round(float(k[6] or 0), 2), "avg_shift_hours": round(float(k[7] or 0), 2),
             "total_zd_tickets": int(k[8] or 0),
+            "total_dialpad": int(total_dialpad or 0),
             "alert_breakdown": alert_breakdown, "monitor_breakdown": monitor_breakdown,
             "ticket_trend": ticket_trend, "alert_trend": alert_trend,
             "incident_trend": incident_trend, "adhoc_trend": adhoc_trend,
