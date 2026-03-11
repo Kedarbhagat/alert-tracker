@@ -276,23 +276,49 @@ def update_zd_count():
         return jsonify({"error": "shift_id and count are required"}), 400
     try:
         with db() as cur:
-            # Update the aggregate solved count for this shift
+            # Update the aggregate solved count for this shift and fetch shift start time
             cur.execute(
-                "UPDATE shifts SET zd_ticket_count=%s WHERE id=%s RETURNING zd_ticket_count",
+                "UPDATE shifts SET zd_ticket_count=%s WHERE id=%s RETURNING zd_ticket_count, login_time",
                 (max(0, int(count)), shift_id)
             )
             row = cur.fetchone()
             if not row:
                 return jsonify({"error": "Shift not found"}), 404
 
-            zd_count = row[0]
+            zd_count, login_time = row[0], row[1]
 
-            # Log Zendesk tickets against this shift (deduped per shift_id + ticket_number).
-            # Frontend already limits this to tickets counted as solved during this shift.
+            from datetime import datetime, timezone
+
+            # Normalise shift start to UTC for comparison
+            if login_time is not None:
+                if login_time.tzinfo is None:
+                    login_utc = login_time.replace(tzinfo=timezone.utc)
+                else:
+                    login_utc = login_time.astimezone(timezone.utc)
+            else:
+                login_utc = None
+
+            # Log Zendesk tickets against this shift (deduped per shift_id + ticket_number),
+            # but only if their updated_at is on/after the shift start time. This ensures
+            # we only store tickets solved during THIS shift, not lifetime.
             tickets = data.get("tickets") or []
             for t in tickets:
                 number = str(t.get("id") or t.get("number") or "").strip()
-                if not number:
+                raw_updated = t.get("updated_at")
+                if not number or not raw_updated or not login_utc:
+                    continue
+
+                try:
+                    ts = raw_updated.replace("Z", "+00:00") if isinstance(raw_updated, str) else None
+                    updated_at = datetime.fromisoformat(ts) if ts else None
+                except Exception:
+                    updated_at = None
+
+                if not updated_at:
+                    continue
+
+                updated_utc = updated_at.astimezone(timezone.utc)
+                if updated_utc < login_utc:
                     continue
 
                 cur.execute(
