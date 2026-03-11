@@ -950,9 +950,8 @@ function ManagerDashboard() {
                   <KpiCard label="Agents Today"   value={analytics.today?.agents_active    ?? 0} color={C.accentLight} delay={0.05} />
                   <KpiCard label="Cases Triaged"  value={analytics.today?.cases_triaged    ?? 0} color={C.greenText}   delay={0.10} />
                   <KpiCard label="ZD Tickets Solved" value={analytics.today?.zd_tickets ?? 0} color="#818cf8" delay={0.15} />
-                  <KpiCard label="Avg Cases / hr" value={analytics.avg_productivity        ?? 0} color={C.amberText}   delay={0.15} />
-                  <KpiCard label="Alerts Today"   value={analytics.alerts_today            ?? 0} color={C.redText}     delay={0.20} />
-                  <KpiCard label="Tickets Today"  value={analytics.tickets_today           ?? 0} color={C.amberText}   delay={0.25} />
+                  <KpiCard label="Avg Cases / hr" value={analytics.avg_productivity        ?? 0} color={C.amberText}   delay={0.20} />
+                  <KpiCard label="Alerts Today"   value={analytics.alerts_today            ?? 0} color={C.redText}     delay={0.25} />
                   <KpiCard label="Dialpad Today"  value={analytics.dialpad_today           ?? 0} color={C.accentLight} delay={0.30} />
                 </div>
 
