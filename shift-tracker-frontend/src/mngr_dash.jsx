@@ -399,10 +399,10 @@ function ShiftDetailsModal({ shiftDetails, isLoading, error, onClose, formatDate
                 />
               </div>
 
-              {/* Tickets */}
+              {/* Zendesk tickets solved this shift */}
               {shiftDetails.tickets?.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <SubLabel>Dialpad Tickets ({shiftDetails.tickets.length})</SubLabel>
+                  <SubLabel>Zendesk Tickets Solved ({shiftDetails.tickets.length})</SubLabel>
                   {shiftDetails.tickets.map((ticket, i) => (
                     <ModalItem key={i} accentColor={C.amberText}>
                       <span style={{
