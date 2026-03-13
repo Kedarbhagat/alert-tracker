@@ -355,6 +355,15 @@ def get_agent_detail(agent_id):
             """, p)
             k = cur.fetchone()
 
+            # Distinct Zendesk tickets this agent has solved in the selected period
+            cur.execute("""
+                SELECT COUNT(DISTINCT t.ticket_number)
+                FROM tickets t
+                JOIN shifts s ON s.id = t.shift_id
+                WHERE s.agent_id=%s AND s.login_time>=%s AND s.login_time<=%s
+            """, p)
+            total_zd_distinct = cur.fetchone()[0] or 0
+
             # Total Dialpad tickets for this agent over the selected date range
             cur.execute("""
                 SELECT COUNT(*)
@@ -375,7 +384,7 @@ def get_agent_detail(agent_id):
             "total_tickets": int(k[2] or 0), "total_alerts": int(k[3] or 0),
             "total_incidents": int(k[4] or 0), "total_adhoc": int(k[5] or 0),
             "avg_triaged_per_shift": round(float(k[6] or 0), 2), "avg_shift_hours": round(float(k[7] or 0), 2),
-            "total_zd_tickets": int(k[8] or 0),
+            "total_zd_tickets": int(total_zd_distinct or 0),
             "total_dialpad": int(total_dialpad or 0),
             "alert_breakdown": alert_breakdown, "monitor_breakdown": monitor_breakdown,
             "ticket_trend": ticket_trend, "alert_trend": alert_trend,
