@@ -1461,6 +1461,83 @@ const handleMicrosoftLogin = () => {
               </div>
             </div>
 
+            {/* Zendesk status summary */}
+            {zdTickets.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                {Object.entries(
+                  zdTickets.reduce((acc, t) => {
+                    acc[t.status] = (acc[t.status] || 0) + 1;
+                    return acc;
+                  }, {})
+                ).map(([status, count]) => {
+                  const sc = ZD_COLOR[status] || ZD_COLOR.open;
+                  return (
+                    <div
+                      key={status}
+                      style={{
+                        background: C.raised,
+                        border: `1px solid ${sc.border}`,
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: sc.text,
+                        }}
+                      >
+                        {sc.label || status}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 750, color: C.ink, lineHeight: 1 }}>
+                        {count}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div
+                  style={{
+                    background: C.bgAlt,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 10,
+                    padding: "12px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: C.inkLight,
+                    }}
+                  >
+                    Total
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 750, color: C.ink, lineHeight: 1 }}>
+                    {zdTickets.length}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── 2×2 card grid ── */}
             <div className="ag-grid-3col">
 
@@ -1565,94 +1642,6 @@ const handleMicrosoftLogin = () => {
                     };
                     return (
                       <div>
-                        {/* Summary cards */}
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
-                            gap: 12,
-                            marginBottom: 16,
-                          }}
-                        >
-                          {Object.entries(
-                            zdTickets.reduce((acc, t) => {
-                              acc[t.status] = (acc[t.status] || 0) + 1;
-                              return acc;
-                            }, {})
-                          ).map(([status, count]) => {
-                            const sc = ZD_COLOR[status] || ZD_COLOR.open;
-                            return (
-                              <div
-                                key={status}
-                                style={{
-                                  background: C.raised,
-                                  border: `1px solid ${sc.border}`,
-                                  borderRadius: 10,
-                                  padding: "10px 12px",
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: 4,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.08em",
-                                    color: sc.text,
-                                  }}
-                                >
-                                  {sc.label || status}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 20,
-                                    fontWeight: 700,
-                                    color: C.ink,
-                                  }}
-                                >
-                                  {count}
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {/* Total tickets card */}
-                          <div
-                            style={{
-                              background: C.bgAlt,
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 10,
-                              padding: "10px 12px",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 4,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.08em",
-                                color: C.inkLight,
-                              }}
-                            >
-                              Total
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 20,
-                                fontWeight: 700,
-                                color: C.ink,
-                              }}
-                            >
-                              {zdTickets.length}
-                            </div>
-                          </div>
-                        </div>
-
                         {/* Active tickets */}
                         {openTickets.length > 0 && (
                           <>
