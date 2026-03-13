@@ -1565,19 +1565,92 @@ const handleMicrosoftLogin = () => {
                     };
                     return (
                       <div>
-                        {/* Summary bar */}
-                        <div style={{ display:"flex", gap:12, marginBottom:16, flexWrap:"wrap" }}>
+                        {/* Summary cards */}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
+                            gap: 12,
+                            marginBottom: 16,
+                          }}
+                        >
                           {Object.entries(
-                            zdTickets.reduce((acc, t) => { acc[t.status] = (acc[t.status]||0)+1; return acc; }, {})
+                            zdTickets.reduce((acc, t) => {
+                              acc[t.status] = (acc[t.status] || 0) + 1;
+                              return acc;
+                            }, {})
                           ).map(([status, count]) => {
                             const sc = ZD_COLOR[status] || ZD_COLOR.open;
                             return (
-                              <span key={status} style={{ padding:"3px 10px", borderRadius:999, fontSize:11, fontWeight:700, background:sc.bg, border:`1px solid ${sc.border}`, color:sc.text }}>
-                                {sc.label || status} · {count}
-                              </span>
+                              <div
+                                key={status}
+                                style={{
+                                  background: C.raised,
+                                  border: `1px solid ${sc.border}`,
+                                  borderRadius: 10,
+                                  padding: "10px 12px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 4,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.08em",
+                                    color: sc.text,
+                                  }}
+                                >
+                                  {sc.label || status}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 20,
+                                    fontWeight: 700,
+                                    color: C.ink,
+                                  }}
+                                >
+                                  {count}
+                                </div>
+                              </div>
                             );
                           })}
-                          <span style={{ marginLeft:"auto", fontSize:11, color:C.inkLight }}>{zdTickets.length} total</span>
+
+                          {/* Total tickets card */}
+                          <div
+                            style={{
+                              background: C.bgAlt,
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 10,
+                              padding: "10px 12px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 4,
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                                color: C.inkLight,
+                              }}
+                            >
+                              Total
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 20,
+                                fontWeight: 700,
+                                color: C.ink,
+                              }}
+                            >
+                              {zdTickets.length}
+                            </div>
+                          </div>
                         </div>
 
                         {/* Active tickets */}
