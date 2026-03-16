@@ -452,11 +452,11 @@ const handleMicrosoftLogin = () => {
     closed:  { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#4ade80",  label:"Closed ✔ Done"  },
   };
 
-  const fetchZdByAgent = async (agentName) => {
+  const fetchZdByAgent = async (agentEmail) => {
     setZdLoading(true);
     setZdError(null);
     try {
-      const res = await fetch(`${API}/zendesk/tickets-by-agent?name=${encodeURIComponent(agentName)}`);
+      const res = await fetch(`${API}/zendesk/tickets-by-agent?email=${encodeURIComponent(agentEmail)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const incoming = data.tickets || [];
@@ -502,11 +502,11 @@ const handleMicrosoftLogin = () => {
 
   // Auto-fetch on shift start, then poll every 60s
   useEffect(() => {
-    if (!selectedAgent || !shiftId) return;
-    fetchZdByAgent(selectedAgent);
-    zdPollRef.current = setInterval(() => fetchZdByAgent(selectedAgent), 60000);
+    if (!authUser?.email || !shiftId) return;
+    fetchZdByAgent(authUser.email);
+    zdPollRef.current = setInterval(() => fetchZdByAgent(authUser.email), 60000);
     return () => clearInterval(zdPollRef.current);
-  }, [selectedAgent, shiftId]);
+  }, [authUser?.email, shiftId]);
 
   const handleAddAlert = async () => {
     if (!selectedMonitor || !selectedAlert) {
@@ -1564,7 +1564,7 @@ const handleMicrosoftLogin = () => {
                       <div style={{ width:16, height:16, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.accentLight}`, borderRadius:"50%", animation:"spin .8s linear infinite" }}/>
                     )}
                     <button
-                      onClick={() => fetchZdByAgent(selectedAgent)}
+                      onClick={() => authUser?.email && fetchZdByAgent(authUser.email)}
                       disabled={zdLoading}
                       style={{ all:"unset", cursor:"pointer", padding:"4px 10px", borderRadius:6, border:`1px solid ${C.border}`, fontSize:11, color:C.inkMid, fontFamily:"'Plus Jakarta Sans',sans-serif" }}
                     >
@@ -1593,7 +1593,7 @@ const handleMicrosoftLogin = () => {
                   {/* Empty */}
                   {!zdLoading && !zdError && zdTickets.length === 0 && (
                     <div style={{ textAlign:"center", padding:"32px 0", color:C.inkLight, fontSize:13 }}>
-                      No tickets assigned to <strong style={{ color:C.inkMid }}>{selectedAgent}</strong> in Zendesk
+                      No tickets assigned to <strong style={{ color:C.inkMid }}>{authUser?.name || selectedAgent}</strong> in Zendesk
                     </div>
                   )}
 

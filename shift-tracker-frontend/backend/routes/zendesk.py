@@ -7,11 +7,24 @@ from flask import Blueprint, request, jsonify
 
 zendesk_bp = Blueprint("zendesk", __name__, url_prefix="/zendesk")
 
+def _require_env(key: str) -> str:
+    v = (os.getenv(key) or "").strip()
+    if not v:
+        raise RuntimeError(f"Missing required environment variable: {key}")
+    return v
+
 def _zd_base():
-    return f"https://{os.getenv('ZENDESK_SUBDOMAIN')}.zendesk.com/api/v2"
+    subdomain = _require_env("ZENDESK_SUBDOMAIN")
+    # Guardrail: this app is intended to run against ONE production Zendesk instance.
+    # If you want sandbox vs prod, deploy two separate apps with different env vars.
+    if "sandbox" in subdomain.lower():
+        raise RuntimeError("ZENDESK_SUBDOMAIN looks like a sandbox. Configure production Zendesk credentials.")
+    return f"https://{subdomain}.zendesk.com/api/v2"
 
 def _zd_auth():
-    return (f"{os.getenv('ZENDESK_EMAIL')}/token", os.getenv("ZENDESK_API_TOKEN"))
+    email = _require_env("ZENDESK_EMAIL")
+    token = _require_env("ZENDESK_API_TOKEN")
+    return (f"{email}/token", token)
 
 def _zd_get(path, params=None):
     url = f"{_zd_base()}{path}"
@@ -55,28 +68,32 @@ def debug_user():
 @zendesk_bp.route("/tickets-by-agent", methods=["GET", "OPTIONS"])
 def tickets_by_agent():
     """
-    GET /zendesk/tinamckets-by-agent?e=<agent_display_name>
+    GET /zendesk/tickets-by-agent?email=<agent_email>
     Uses /users/{id}/tickets/assigned.json — strictly returns only that user's tickets.
     """
     if request.method == "OPTIONS":
         return "", 200
 
-    name = (request.args.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "name query parameter is required"}), 400
+    email = (request.args.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "email query parameter is required"}), 400
 
     try:
-        # Step 1 — find user, prefer exact name match
-        search = _zd_get("/search.json", params={"query": f'type:user "{name}"'})
+        # Step 1 — find user by email (unique + stable)
+        search = _zd_get("/search.json", params={"query": f'type:user email:"{email}"'})
         all_users = [r for r in search.get("results", []) if r.get("result_type") == "user"]
 
         if not all_users:
-            return jsonify({"tickets": [], "message": f"No Zendesk user found matching '{name}'"})
+            return jsonify({"tickets": [], "message": f"No Zendesk user found for '{email}'"})
 
-        exact = [u for u in all_users if u.get("name", "").strip().lower() == name.lower()]
-        matched_user = exact[0] if exact else all_users[0]
-        user_id    = matched_user["id"]
-        agent_name = matched_user.get("name", name)
+        # Email searches should be unique; if not, fail loudly instead of guessing.
+        if len(all_users) > 1:
+            matches = [{"id": u.get("id"), "name": u.get("name"), "email": u.get("email"), "role": u.get("role")} for u in all_users]
+            return jsonify({"error": "Multiple Zendesk users matched this email", "matches": matches}), 409
+
+        matched_user = all_users[0]
+        user_id = matched_user["id"]
+        agent_name = matched_user.get("name") or email
 
         # Step 2 — use the dedicated assigned-tickets endpoint for this user
         all_tickets = []
