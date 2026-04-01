@@ -93,8 +93,30 @@ def delete_user(agent_id):
             cur.execute("SELECT name FROM agents WHERE id::text=%s", (agent_id,))
             row = cur.fetchone()
             if not row: return jsonify({"error": "Agent not found"}), 404
+
+            # Delete all shift-related history first (FKs from many tables point at shifts).
+            cur.execute("SELECT COUNT(*) FROM shifts WHERE agent_id=%s", (agent_id,))
+            total_shifts = int(cur.fetchone()[0] or 0)
+
+            for table in [
+                "tickets",
+                "alerts",
+                "incident_status",
+                "adhoc_tasks",
+                "handovers",
+                "maintenance_logs",
+                "dialpad_tickets",
+            ]:
+                cur.execute(
+                    f"DELETE FROM {table} WHERE shift_id IN (SELECT id FROM shifts WHERE agent_id=%s)",
+                    (agent_id,),
+                )
+
+            cur.execute("DELETE FROM shifts WHERE agent_id=%s", (agent_id,))
             cur.execute("DELETE FROM agents WHERE id::text=%s", (agent_id,))
         print(f"🗑️  Agent deleted: {row[0]} UUID={agent_id}")
+        if total_shifts > 0:
+            return jsonify({"message": f"Agent '{row[0]}' deleted successfully (removed {total_shifts} shift(s) of history)"})
         return jsonify({"message": f"Agent '{row[0]}' deleted successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
