@@ -273,7 +273,6 @@ const handleMicrosoftLogin = () => {
   // New fields: Shift Handover & Maintenance
   const [handoverDescription, setHandoverDescription] = useState("");
   const [handoverTo, setHandoverTo]                   = useState("");
-  const [maintenanceLog, setMaintenanceLog]           = useState("");
 
   // ── Notification bell state ────────────────────────────────────────────────
   const [showNotifications, setShowNotifications] = useState(false);
@@ -632,26 +631,7 @@ const handleMicrosoftLogin = () => {
     }
   };
 
-  const handleSaveMaintenance = async () => {
-    if (!maintenanceLog.trim()) {
-      showToast("Please enter maintenance information", "warning");
-      return;
-    }
-    try {
-      const res = await fetch(`${API}/add-maintenance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shift_id: shiftId, description: maintenanceLog }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("Maintenance log saved");
-      setMaintenanceLog("");
-    } catch {
-      showToast("Failed to save maintenance log", "error");
-    }
-  };
-
-  const handleEndShift = async () => {
+const handleEndShift = async () => {
     try {
       const endRes = await fetch(`${API}/end-shift`, {
         method: "POST",
@@ -685,7 +665,6 @@ const handleMicrosoftLogin = () => {
     setAdhocTask("");
     setHandoverDescription("");
     setHandoverTo("");
-    setMaintenanceLog("");
     setSelectedMonitor("");
     setSelectedAlert("");
     setAlertComment("");
@@ -1873,17 +1852,15 @@ const handleMicrosoftLogin = () => {
                   </svg>
                 </div>
                 <div style={styles.cardBody}>
-                  <label style={styles.label}>Maintenance Description</label>
-                  <textarea
-                    rows="6"
-                    placeholder="Document maintenance activities, system updates, or infrastructure changes…"
-                    value={maintenanceLog}
-                    onChange={(e) => setMaintenanceLog(e.target.value)}
-                    className="ag-input"
-                  />
-                  <button className="ag-btn-primary" onClick={handleSaveMaintenance}>
-                    Save Maintenance Log
-                  </button>
+                  <a
+                    href="https://project44com-my.sharepoint.com/personal/shreya_ps_project44_com/_layouts/15/listform.aspx?PageType=8&ListId=%7BE4EC0A2B-529B-4D3B-91D0-EAECDCF295BC%7D&RootFolder=%2Fpersonal%2Fshreya_ps_project44_com%2FLists%2FScheduled%20Maintenance%20Tracker&Source=https%3A%2F%2Fproject44com-my.sharepoint.com%2Fpersonal%2Fshreya_ps_project44_com%2FLists%2FScheduled%2520Maintenance%2520Tracker%2FAllItems.aspx%3Fe%3D3%253Ae4924a32ac0345f3a2c03176ada0135b%26sharingv2%3Dtrue%26fromShare%3Dtrue%26at%3D9%26CID%3Db9294b1f-5fed-45f2-a2ba-1adbd71633a2&ContentTypeId=0x0100769B337A232294439192D75B7B8255E8006C06936C04D2E2409B852BD90D413C46"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ag-btn-primary"
+                    style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+                  >
+                    Log Maintenance Activity
+                  </a>
                 </div>
               </div>
 
