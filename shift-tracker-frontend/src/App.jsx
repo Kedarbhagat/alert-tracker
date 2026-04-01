@@ -263,8 +263,7 @@ const handleMicrosoftLogin = () => {
   const [alertDate, setAlertDate] = useState(() => nowIST().date);
   const [alertTime, setAlertTime] = useState(() => nowIST().time);
 
-  const [incidentStatus, setIncidentStatus] = useState("");
-  const [adhocTask, setAdhocTask]           = useState("");
+const [adhocTask, setAdhocTask]           = useState("");
   const [dialpadTicket, setDialpadTicket]   = useState("");
   const [dialpadDesc, setDialpadDesc]       = useState("");
   const [showSummary, setShowSummary]       = useState(false);
@@ -543,26 +542,7 @@ const handleMicrosoftLogin = () => {
     }
   };
 
-  const handleSaveIncidentStatus = async () => {
-    if (!incidentStatus.trim()) {
-      showToast("Please enter incident/status information", "warning");
-      return;
-    }
-    try {
-      const res = await fetch(`${API}/add-incident`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shift_id: shiftId, description: incidentStatus }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("Incident report saved");
-      setIncidentStatus("");
-    } catch {
-      showToast("Failed to save incident report", "error");
-    }
-  };
-
-  const handleSaveAdhocTask = async () => {
+const handleSaveAdhocTask = async () => {
     if (!adhocTask.trim()) {
       showToast("Please enter ad-hoc task information", "warning");
       return;
@@ -661,7 +641,6 @@ const handleEndShift = async () => {
     setZdDoneCount(0);
     setZdDoneCount(0);
     setZdTickets([]);
-    setIncidentStatus("");
     setAdhocTask("");
     setHandoverDescription("");
     setHandoverTo("");
@@ -1742,17 +1721,15 @@ const handleEndShift = async () => {
                   </svg>
                 </div>
                 <div style={styles.cardBody}>
-                  <label style={styles.label}>Incident Description</label>
-                  <textarea
-                    rows="6"
-                    placeholder="Document incident details, status updates, or relevant information…"
-                    value={incidentStatus}
-                    onChange={(e) => setIncidentStatus(e.target.value)}
-                    className="ag-input"
-                  />
-                  <button className="ag-btn-primary" onClick={handleSaveIncidentStatus}>
-                    Save Incident Report
-                  </button>
+                  <a
+                    href="https://project44com.sharepoint.com/sites/SupportEnablement/Lists/Incident%20Reporting%20Hub/AllItems.aspx?sortField=IncidentStartTime&isAscending=false&viewid=109269be%2D107e%2D46b7%2Dbd67%2Dc3684190b96b"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ag-btn-primary"
+                    style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+                  >
+                    Log Incident Report
+                  </a>
                 </div>
               </div>
 
