@@ -883,7 +883,6 @@ export default function AgentMonitorIntelligence({ api }) {
   const SORT_OPTS = [
     { value:"total_triaged",     label:"Cases Triaged"    },
     { value:"total_alerts",      label:"Alerts"           },
-    { value:"total_tickets",     label:"Tickets"          },
     { value:"shift_count",       label:"Shift Count"      },
   ];
 
@@ -976,7 +975,6 @@ export default function AgentMonitorIntelligence({ api }) {
                           {[
                             { label:"Triaged",   value:agent.total_triaged,   color:C.greenText },
                             { label:"Alerts",    value:agent.total_alerts,    color:C.redText   },
-                            { label:"Tickets",   value:agent.total_tickets,   color:C.amberText },
                             { label:"Incidents", value:agent.total_incidents, color:C.purple    },
                             { label:"Dialpad",   value:agent.total_dialpad,   color:C.accentLight },
                           ].map(s => (
@@ -1000,7 +998,7 @@ export default function AgentMonitorIntelligence({ api }) {
                 <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${C.border}` }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead className="ami-thead">
-                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","HIP Tickets","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
+                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody className="ami-tbody">
                       {filtered.map((a, i) => {
@@ -1019,7 +1017,6 @@ export default function AgentMonitorIntelligence({ api }) {
                             <td style={{ color:C.inkMid, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>{a.shift_count}</td>
                             <td style={{ fontWeight:600, color:C.greenText }}>{a.total_triaged}</td>
                             <td style={{ color:C.redText }}>{a.total_alerts}</td>
-                            <td style={{ color:C.amberText }}>{a.total_tickets}</td>
                             <td style={{ color:C.purple }}>{a.total_incidents}</td>
                             <td style={{ color:C.indigo }}>{a.total_adhoc}</td>
                             <td style={{ color:C.accentLight }}>{a.total_dialpad??0}</td>

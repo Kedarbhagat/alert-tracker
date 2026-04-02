@@ -417,15 +417,14 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
     ? `${panelFrom} → ${panelTo}`
     : `Last ${panelPreset} days`;
 
-  const ticketTrend   = agent.ticket_trend   || [];
   const alertTrend    = agent.alert_trend    || [];
   const incidentTrend = agent.incident_trend || [];
   const adhocTrend    = agent.adhoc_trend    || [];
   const dialpadTrend  = agent.dialpad_trend  || [];
 
-  const allDates = [...new Set([...ticketTrend,...alertTrend,...incidentTrend,...adhocTrend,...dialpadTrend].map(d=>d.date).filter(Boolean))].sort();
+  const allDates = [...new Set([...alertTrend,...incidentTrend,...adhocTrend,...dialpadTrend].map(d=>d.date).filter(Boolean))].sort();
   const makeVals = (arr) => allDates.map(d => { const f=arr.find(x=>x.date===d); return f?Number(f.count)||0:0; });
-  const tVals=makeVals(ticketTrend), aVals=makeVals(alertTrend), iVals=makeVals(incidentTrend), hVals=makeVals(adhocTrend), dVals=makeVals(dialpadTrend);
+  const aVals=makeVals(alertTrend), iVals=makeVals(incidentTrend), hVals=makeVals(adhocTrend), dVals=makeVals(dialpadTrend);
   const shortDates = allDates.map(d=>d?.slice(5)||"");
 
   const topAlerts   = (agent.alert_breakdown  ||[]).slice(0,6);
@@ -552,7 +551,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
           <div>
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Activity Over Time</div>
             <div style={{ display:"flex",gap:16,marginBottom:10,flexWrap:"wrap" }}>
-              {[{label:"HIP Tickets",color:C.amberText},{label:"Alerts",color:C.redText},{label:"Incidents",color:"#a78bfa"},{label:"Ad-hoc",color:C.inkMid},{label:"Dialpad",color:C.accentLight}].map(l=>(
+              {[{label:"Alerts",color:C.redText},{label:"Incidents",color:"#a78bfa"},{label:"Ad-hoc",color:C.inkMid},{label:"Dialpad",color:C.accentLight}].map(l=>(
                 <div key={l.label} style={{ display:"flex",alignItems:"center",gap:5 }}>
                   <div style={{ width:16,height:2,background:l.color,borderRadius:2 }} />
                   <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
@@ -561,7 +560,6 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
             </div>
             <LineAreaChart
               datasets={[
-                {name:"HIP Tickets", values:tVals,color:C.amberText},
                 {name:"Alerts",      values:aVals,color:C.redText},
                 {name:"Incidents",   values:iVals,color:"#a78bfa"},
                 {name:"Ad-hoc",      values:hVals,color:C.inkMid},
@@ -756,7 +754,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
     monitor_analysis     = [],
     shift_duration_stats = {},
     incident_pattern     = [],
-    ticket_volume        = [],
     dialpad_volume       = [],
     agent_consistency    = [],
     peak_hour            = null,
@@ -769,7 +766,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const totalTriaged   = performance_trends.reduce((s,d)=>s+(Number(d.total_triaged)||0),0);
   const peakAgents     = Math.max(...performance_trends.map(d=>Number(d.agents)||0),0);
   const totalAlerts    = alert_analysis.reduce((s,a)=>s+(Number(a.count)||0),0);
-  const totalTickets   = ticket_volume.reduce((s,t)=>s+(Number(t.count)||0),0);
   const totalIncidents = incident_pattern.reduce((s,i)=>s+(Number(i.count)||0),0);
   const totalDialpad   = dialpad_volume.reduce((s,d)=>s+(Number(d.count)||0),0);
 
@@ -780,14 +776,13 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const agentsVals  = performance_trends.map(d=>Number(d.agents)||0);
 
   /* ── Volume trend (tickets + incidents + dialpad merged) ── */
-  const volDates = [...new Set([...ticket_volume,...incident_pattern,...dialpad_volume].map(d=>d.date).filter(Boolean))].sort();
-  const tickVals   = volDates.map(d=>{const f=ticket_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
+  const volDates = [...new Set([...incident_pattern,...dialpad_volume].map(d=>d.date).filter(Boolean))].sort();
   const incVals    = volDates.map(d=>{const f=incident_pattern.find(x=>x.date===d);return f?Number(f.count)||0:0;});
   const dialpadVals= volDates.map(d=>{const f=dialpad_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
 
   /* ── Donuts ── */
   const alertDonut = alert_analysis.slice(0,8).map(a=>({label:a.alert_type||"Unknown",value:Number(a.count)||0}));
-  const volDonut   = [{label:"Tickets",value:totalTickets,color:C.amberText},{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText},{label:"Dialpad",value:totalDialpad,color:C.accentLight}].filter(d=>d.value>0);
+  const volDonut   = [{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText},{label:"Dialpad",value:totalDialpad,color:C.accentLight}].filter(d=>d.value>0);
 
   /* ── Agent table ── */
   const agentTable = agent_rankings.map(a => {
@@ -907,8 +902,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
             <KpiCard value={totalTriaged}   label="Cases Triaged"   color={C.greenText}   delay={0.05} />
             <KpiCard value={peakAgents}     label="Peak Agents/Day" color={C.indigo}      delay={0.1}  />
             <KpiCard value={totalAlerts}    label="Total Alerts"    color={C.redText}     delay={0.15} />
-            <KpiCard value={totalTickets}   label="HIP Tickets"     color={C.amberText}   delay={0.2}  />
-            <KpiCard value={performance_trends.reduce((s,d)=>s+(Number(d.total_zd_tickets)||0),0)} label="ZD Tickets Solved" color="#818cf8" delay={0.25} />
+            <KpiCard value={performance_trends.reduce((s,d)=>s+(Number(d.total_zd_tickets)||0),0)} label="ZD Tickets Solved" color="#818cf8" delay={0.2} />
             <KpiCard value={totalIncidents} label="Incidents"       color="#a78bfa"       delay={0.25} />
             <KpiCard value={totalDialpad}   label="Dialpad Tickets" color={C.accentLight} delay={0.3}  />
           </div>
@@ -946,7 +940,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
             <Panel>
               <PanelTitle>Tickets vs Incidents vs Dialpad — Daily</PanelTitle>
               <div style={{ display:"flex",gap:16,marginBottom:10 }}>
-                {[{label:"HIP Tickets",color:C.amberText},{label:"Incidents",color:"#a78bfa"},{label:"Dialpad",color:C.accentLight}].map(l=>(
+                {[{label:"Incidents",color:"#a78bfa"},{label:"Dialpad",color:C.accentLight}].map(l=>(
                   <div key={l.label} style={{ display:"flex",alignItems:"center",gap:5 }}>
                     <div style={{ width:14,height:2,background:l.color,borderRadius:2 }} />
                     <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
@@ -956,7 +950,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
               {volDates.length>0
                 ? <LineAreaChart
                     datasets={[
-                      {name:"HIP Tickets", values:tickVals,   color:C.amberText},
                       {name:"Incidents",   values:incVals,    color:"#a78bfa"},
                       {name:"Dialpad",     values:dialpadVals,color:C.accentLight},
                     ]}
@@ -1032,7 +1025,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                   <table style={{ width:"100%",borderCollapse:"collapse" }}>
                     <thead className="aa-thead">
                       <tr>
-                        <th>Agent</th><th>Shifts</th><th>Triaged</th><th>ZD Tickets</th><th>HIP Tickets</th>
+                        <th>Agent</th><th>Shifts</th><th>Triaged</th><th>ZD Tickets</th>
                         <th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th>
                       </tr>
                     </thead>
@@ -1053,7 +1046,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
                             <td style={{ fontFamily:"'JetBrains Mono',monospace",color:C.inkMid,fontSize:12 }}>{a.shift_count??  "—"}</td>
                             <td style={{ fontWeight:600,color:C.accentLight }}>{a.total_triaged?? "—"}</td>
                             <td style={{ color:"#818cf8",fontWeight:600 }}>{a.total_zd_tickets?? "—"}</td>
-                            <td style={{ color:C.amberText }}>{a.total_tickets??  "—"}</td>
                             <td style={{ color:C.redText }}>{a.total_alerts??   "—"}</td>
                             <td style={{ color:"#a78bfa" }}>{a.total_incidents??"—"}</td>
                             <td style={{ color:C.inkMid }}>{a.total_adhoc??     "—"}</td>
