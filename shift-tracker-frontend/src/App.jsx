@@ -272,6 +272,9 @@ const [adhocTask, setAdhocTask]           = useState("");
   const [dialpadDesc, setDialpadDesc]       = useState("");
   const [showSummary, setShowSummary]       = useState(false);
   const [summaryData, setSummaryData]       = useState(null);
+  const [shiftLogOpen, setShiftLogOpen]     = useState(false);
+  const [shiftLog, setShiftLog]             = useState(null);
+  const [shiftLogLoading, setShiftLogLoading] = useState(false);
 
   // New fields: Shift Handover & Maintenance
   const [handoverDescription, setHandoverDescription] = useState("");
@@ -549,6 +552,21 @@ const [adhocTask, setAdhocTask]           = useState("");
       setAlertTime(fresh.time);
     } catch {
       showToast("Failed to log alert", "error");
+    }
+  };
+
+  const openShiftLog = async () => {
+    setShiftLogOpen(true);
+    setShiftLogLoading(true);
+    try {
+      const res = await fetch(`${API}/shift-summary/${shiftId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setShiftLog(await res.json());
+    } catch {
+      showToast("Failed to load shift log", "error");
+      setShiftLogOpen(false);
+    } finally {
+      setShiftLogLoading(false);
     }
   };
 
@@ -902,6 +920,155 @@ const handleEndShift = async () => {
         )}
 
       </div>
+
+      {/* ── Shift Log Modal ── */}
+      {shiftLogOpen && (
+        <div
+          onClick={() => setShiftLogOpen(false)}
+          style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(0,0,0,0.72)", backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background:"#161b22", border:"1px solid #30363d", borderRadius:14, width:"100%", maxWidth:780, maxHeight:"88vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.8)", display:"flex", flexDirection:"column" }}
+          >
+            {/* Header */}
+            <div style={{ padding:"18px 24px", borderBottom:"1px solid #30363d", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:"#161b22", zIndex:1 }}>
+              <div>
+                <div style={{ fontSize:16, fontWeight:700, color:"#e6edf3", fontFamily:"'Inter',sans-serif" }}>My Shift Log</div>
+                <div style={{ fontSize:12, color:"#8b949e", marginTop:2, fontFamily:"'Inter',sans-serif" }}>Everything logged in your current shift</div>
+              </div>
+              <button onClick={() => setShiftLogOpen(false)} style={{ all:"unset", cursor:"pointer", color:"#8b949e", fontSize:20, lineHeight:1, padding:"2px 6px" }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:20 }}>
+              {shiftLogLoading && (
+                <div style={{ textAlign:"center", padding:"40px 0", color:"#8b949e", fontSize:14, fontFamily:"'Inter',sans-serif" }}>
+                  <div style={{ width:28, height:28, border:"2px solid #30363d", borderTop:"2px solid #3b82f6", borderRadius:"50%", animation:"spin .8s linear infinite", margin:"0 auto 12px" }} />
+                  Loading…
+                </div>
+              )}
+
+              {!shiftLogLoading && shiftLog && (() => {
+                const Section = ({ title, color, icon, children, count }) => (
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+                      <span style={{ fontSize:15 }}>{icon}</span>
+                      <span style={{ fontSize:13, fontWeight:700, color, fontFamily:"'Inter',sans-serif", textTransform:"uppercase", letterSpacing:"0.07em" }}>{title}</span>
+                      <span style={{ background:"rgba(255,255,255,0.06)", border:"1px solid #30363d", borderRadius:999, padding:"1px 9px", fontSize:11, color:"#8b949e", fontFamily:"'JetBrains Mono',monospace" }}>{count}</span>
+                    </div>
+                    {children}
+                  </div>
+                );
+
+                const Empty = () => (
+                  <div style={{ padding:"10px 14px", background:"rgba(255,255,255,0.03)", border:"1px solid #21262d", borderRadius:8, fontSize:12, color:"#6e7681", fontFamily:"'Inter',sans-serif" }}>
+                    Nothing logged yet
+                  </div>
+                );
+
+                const row = (cols, i) => (
+                  <div key={i} style={{ display:"grid", gridTemplateColumns:cols.length === 3 ? "1fr 1fr 1fr" : cols.length === 2 ? "1fr 1fr" : "1fr", gap:8, padding:"9px 14px", background: i % 2 === 0 ? "rgba(255,255,255,0.025)" : "transparent", borderRadius:6 }}>
+                    {cols.map((c, j) => (
+                      <span key={j} style={{ fontSize:12, color: j === 0 ? "#e6edf3" : "#8b949e", fontFamily:"'Inter',sans-serif", wordBreak:"break-word" }}>{c || "—"}</span>
+                    ))}
+                  </div>
+                );
+
+                return (
+                  <>
+                    {/* Alerts */}
+                    <Section title="Alerts Logged" color="#f85149" icon="🔔" count={shiftLog.alerts?.length ?? 0}>
+                      {shiftLog.alerts?.length ? (
+                        <div style={{ border:"1px solid #21262d", borderRadius:8, overflow:"hidden" }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, padding:"7px 14px", background:"#21262d" }}>
+                            {["Monitor","Alert Type","Time"].map(h => <span key={h} style={{ fontSize:10, fontWeight:700, color:"#6e7681", textTransform:"uppercase", letterSpacing:"0.08em", fontFamily:"'Inter',sans-serif" }}>{h}</span>)}
+                          </div>
+                          {shiftLog.alerts.map((a, i) => row([a.monitor, a.type, a.created_at], i))}
+                        </div>
+                      ) : <Empty />}
+                    </Section>
+
+                    {/* Cases Triaged */}
+                    <Section title="Cases Triaged" color="#3fb950" icon="✅" count={shiftLog.triaged_count ?? 0}>
+                      <div style={{ padding:"10px 14px", background:"rgba(35,134,54,0.08)", border:"1px solid rgba(35,134,54,0.25)", borderRadius:8, fontSize:13, color:"#3fb950", fontFamily:"'JetBrains Mono',monospace" }}>
+                        {shiftLog.triaged_count ?? 0} cases triaged this shift
+                      </div>
+                    </Section>
+
+                    {/* Zendesk Tickets */}
+                    <Section title="ZD Tickets Solved" color="#d29922" icon="🎫" count={shiftLog.zd_ticket_count ?? 0}>
+                      <div style={{ padding:"10px 14px", background:"rgba(158,106,3,0.08)", border:"1px solid rgba(158,106,3,0.25)", borderRadius:8, fontSize:13, color:"#d29922", fontFamily:"'JetBrains Mono',monospace" }}>
+                        {shiftLog.zd_ticket_count ?? 0} tickets solved/closed this shift
+                      </div>
+                    </Section>
+
+                    {/* Ad-hoc Tasks */}
+                    <Section title="Ad-hoc Tasks" color="#a78bfa" icon="📌" count={shiftLog.adhoc_tasks?.length ?? 0}>
+                      {shiftLog.adhoc_tasks?.length ? (
+                        <div style={{ border:"1px solid #21262d", borderRadius:8, overflow:"hidden" }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:"7px 14px", background:"#21262d" }}>
+                            {["Task","Time"].map(h => <span key={h} style={{ fontSize:10, fontWeight:700, color:"#6e7681", textTransform:"uppercase", letterSpacing:"0.08em", fontFamily:"'Inter',sans-serif" }}>{h}</span>)}
+                          </div>
+                          {shiftLog.adhoc_tasks.map((t, i) => row([t.task, t.created_at], i))}
+                        </div>
+                      ) : <Empty />}
+                    </Section>
+
+                    {/* Handovers */}
+                    <Section title="Handovers" color="#38bdf8" icon="🔁" count={shiftLog.handovers?.length ?? 0}>
+                      {shiftLog.handovers?.length ? (
+                        <div style={{ border:"1px solid #21262d", borderRadius:8, overflow:"hidden" }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, padding:"7px 14px", background:"#21262d" }}>
+                            {["Description","To","Time"].map(h => <span key={h} style={{ fontSize:10, fontWeight:700, color:"#6e7681", textTransform:"uppercase", letterSpacing:"0.08em", fontFamily:"'Inter',sans-serif" }}>{h}</span>)}
+                          </div>
+                          {shiftLog.handovers.map((h, i) => row([h.description, h.handover_to, h.created_at], i))}
+                        </div>
+                      ) : <Empty />}
+                    </Section>
+
+                    {/* Dialpad */}
+                    <Section title="Dialpad Tickets" color="#fb923c" icon="📞" count={shiftLog.dialpad_tickets?.length ?? 0}>
+                      {shiftLog.dialpad_tickets?.length ? (
+                        <div style={{ border:"1px solid #21262d", borderRadius:8, overflow:"hidden" }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, padding:"7px 14px", background:"#21262d" }}>
+                            {["Ticket #","Description","Time"].map(h => <span key={h} style={{ fontSize:10, fontWeight:700, color:"#6e7681", textTransform:"uppercase", letterSpacing:"0.08em", fontFamily:"'Inter',sans-serif" }}>{h}</span>)}
+                          </div>
+                          {shiftLog.dialpad_tickets.map((t, i) => row([t.ticket_number, t.description, t.created_at], i))}
+                        </div>
+                      ) : <Empty />}
+                    </Section>
+
+                    {/* Maintenance */}
+                    <Section title="Maintenance Logs" color="#6e7681" icon="🔧" count={shiftLog.maintenance?.length ?? 0}>
+                      {shiftLog.maintenance?.length ? (
+                        <div style={{ border:"1px solid #21262d", borderRadius:8, overflow:"hidden" }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:"7px 14px", background:"#21262d" }}>
+                            {["Description","Time"].map(h => <span key={h} style={{ fontSize:10, fontWeight:700, color:"#6e7681", textTransform:"uppercase", letterSpacing:"0.08em", fontFamily:"'Inter',sans-serif" }}>{h}</span>)}
+                          </div>
+                          {shiftLog.maintenance.map((m, i) => row([m.description, m.created_at], i))}
+                        </div>
+                      ) : <Empty />}
+                    </Section>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Footer refresh */}
+            {!shiftLogLoading && shiftLog && (
+              <div style={{ padding:"14px 24px", borderTop:"1px solid #30363d", display:"flex", justifyContent:"flex-end" }}>
+                <button
+                  onClick={openShiftLog}
+                  style={{ all:"unset", cursor:"pointer", display:"flex", alignItems:"center", gap:6, fontSize:12, color:"#8b949e", fontFamily:"'Inter',sans-serif", padding:"6px 14px", border:"1px solid #30363d", borderRadius:7 }}
+                >
+                  ↻ Refresh
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Notification panel ── */}
       {showNotifications && (
@@ -1402,6 +1569,24 @@ const handleEndShift = async () => {
               </div>
             </div>
             <div style={styles.headerRight}>
+              <button
+                onClick={openShiftLog}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.35)",
+                  borderRadius: 8, padding: "7px 14px", cursor: "pointer",
+                  color: "#93c5fd", fontSize: 12, fontWeight: 600,
+                  fontFamily: "'Inter',sans-serif", letterSpacing: "0.02em",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="9" y1="13" x2="15" y2="13"/>
+                  <line x1="9" y1="17" x2="13" y2="17"/>
+                </svg>
+                My Shift Log
+              </button>
               <div style={styles.statusBadge}>
                 <div style={styles.statusDot} />
                 Active Shift
