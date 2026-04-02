@@ -901,81 +901,110 @@ const handleEndShift = async () => {
       {showNotifications && (
         <div style={{
           position:"fixed", top:58, right:16, zIndex:9998,
-          width:520, maxHeight:680,
-          background:"#161b22", border:"1px solid #30363d",
-          borderRadius:12, boxShadow:"0 16px 48px rgba(0,0,0,0.8)",
+          width:680, maxHeight:"82vh",
+          background:"#0d1117", border:"1px solid #30363d",
+          borderRadius:16, boxShadow:"0 24px 64px rgba(0,0,0,0.9)",
           display:"flex", flexDirection:"column",
           fontFamily:"'Inter',sans-serif",
           animation:"ag-rise .18s ease",
         }}>
           {/* Panel header */}
-          <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid #30363d",
-            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              <span style={{ fontSize:13, fontWeight:700, color:"#e6edf3" }}>Shift Handovers</span>
-              {handovers.length > 0 && (
-                <span style={{ fontSize:10, color:"#8b949e", background:"#21262d",
-                  padding:"1px 7px", borderRadius:99, border:"1px solid #30363d" }}>
-                  {handovers.length}
+          <div style={{
+            padding:"20px 24px 16px", borderBottom:"1px solid #21262d",
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            background:"linear-gradient(135deg,rgba(37,99,235,0.12) 0%,rgba(22,27,34,0) 60%)",
+            borderRadius:"16px 16px 0 0",
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{
+                width:36, height:36, borderRadius:10,
+                background:"rgba(59,130,246,0.15)", border:"1px solid rgba(59,130,246,0.35)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize:15, fontWeight:700, color:"#e6edf3", letterSpacing:"-0.01em" }}>Shift Handovers</div>
+                <div style={{ fontSize:11, color:"#6e7681", marginTop:1 }}>{handovers.length} handover{handovers.length !== 1 ? "s" : ""}</div>
+              </div>
+              {unseenCount > 0 && (
+                <span style={{
+                  fontSize:11, fontWeight:700, color:"#fff", background:"#2563eb",
+                  padding:"2px 9px", borderRadius:99, marginLeft:4,
+                }}>
+                  {unseenCount} new
                 </span>
               )}
             </div>
             {unseenCount > 0 && (
               <button onClick={(e) => { e.stopPropagation(); markAllSeen(); }}
-                style={{ fontSize:11, color:"#3b82f6", background:"none", border:"none",
-                  cursor:"pointer", padding:"2px 6px", borderRadius:5,
-                  fontFamily:"'Inter',sans-serif" }}>
+                style={{
+                  fontSize:12, color:"#3b82f6", background:"rgba(59,130,246,0.1)",
+                  border:"1px solid rgba(59,130,246,0.3)", cursor:"pointer",
+                  padding:"5px 12px", borderRadius:7, fontFamily:"'Inter',sans-serif",
+                  fontWeight:500,
+                }}>
                 Mark all read
               </button>
             )}
           </div>
 
           {/* Panel body */}
-          <div style={{ overflowY:"auto", maxHeight:560 }}>
+          <div style={{ overflowY:"auto", flex:1 }}>
             {handoversLoading ? (
-              <div style={{ padding:32, textAlign:"center", color:"#8b949e", fontSize:12 }}>
+              <div style={{ padding:48, textAlign:"center", color:"#8b949e", fontSize:13 }}>
                 Loading…
               </div>
             ) : handovers.length === 0 ? (
-              <div style={{ padding:32, textAlign:"center" }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>📋</div>
-                <div style={{ fontSize:13, color:"#8b949e" }}>No handovers yet</div>
+              <div style={{ padding:48, textAlign:"center" }}>
+                <div style={{ fontSize:36, marginBottom:10 }}>📋</div>
+                <div style={{ fontSize:14, color:"#8b949e" }}>No handovers yet</div>
               </div>
             ) : handovers.map((h, i) => (
               <div key={h.id} style={{
-                padding:"14px 20px",
+                padding:"20px 24px",
                 borderBottom: i < handovers.length-1 ? "1px solid #21262d" : "none",
-                background: i < unseenCount ? "rgba(37,99,235,0.05)" : "transparent",
+                background: i < unseenCount ? "rgba(37,99,235,0.06)" : "transparent",
                 transition:"background .15s",
               }}>
                 {/* From / To row */}
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     {/* Avatar */}
                     <div style={{
-                      width:26, height:26, borderRadius:"50%",
-                      background:`hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},55%,22%)`,
-                      border:`1.5px solid hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},55%,45%)`,
+                      width:36, height:36, borderRadius:"50%",
+                      background:`hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},55%,18%)`,
+                      border:`2px solid hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},55%,40%)`,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:11, fontWeight:700,
+                      fontSize:14, fontWeight:700,
                       color:`hsl(${(h.from_name?.charCodeAt(0)||65)*17 % 360},80%,70%)`,
+                      flexShrink:0,
                     }}>
                       {(h.from_name||"?").charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <span style={{ fontSize:12, fontWeight:600, color:"#e6edf3" }}>{h.from_name}</span>
-                      <span style={{ fontSize:11, color:"#6e7681", marginLeft:5 }}>handed over to</span>
-                      <span style={{ fontSize:12, fontWeight:600, color:"#3b82f6", marginLeft:5 }}>
-                        {h.handover_to}
-                      </span>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:14, fontWeight:700, color:"#e6edf3" }}>{h.from_name}</span>
+                        <span style={{ fontSize:12, color:"#6e7681" }}>handed over to</span>
+                        <span style={{
+                          fontSize:13, fontWeight:700, color:"#3b82f6",
+                          background:"rgba(59,130,246,0.1)", padding:"1px 8px",
+                          borderRadius:5, border:"1px solid rgba(59,130,246,0.25)",
+                        }}>
+                          {h.handover_to}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <span style={{ fontSize:10, color:"#6e7681", whiteSpace:"nowrap", marginLeft:8 }}>
+                  <span style={{
+                    fontSize:11, color:"#6e7681", whiteSpace:"nowrap", marginLeft:12,
+                    background:"#161b22", padding:"3px 9px", borderRadius:6,
+                    border:"1px solid #30363d",
+                  }}>
                     {h.created_at
                       ? new Date(h.created_at).toLocaleString("en-IN", {
                           timeZone:"Asia/Kolkata", month:"short", day:"numeric",
@@ -986,14 +1015,14 @@ const handleEndShift = async () => {
                 </div>
                 {/* Handover note */}
                 <div style={{
-                  fontSize:12, color:"#8b949e", lineHeight:1.6,
-                  background:"#0d1117", borderRadius:6, padding:"10px 12px",
-                  border:"1px solid #21262d", marginLeft:32,
-                  maxHeight:"260px", overflowY:"auto",
+                  fontSize:13, color:"#c9d1d9", lineHeight:1.7,
+                  background:"#161b22", borderRadius:10, padding:"14px 16px",
+                  border:"1px solid #30363d", marginLeft:46,
+                  maxHeight:"300px", overflowY:"auto",
                 }}>
                   {(h.description || "").split("\n").filter(line => line.trim()).map((line, li) => (
-                    <div key={li} style={{ display:"flex", gap:7, alignItems:"flex-start", marginBottom:5 }}>
-                      <span style={{ color:"#3b82f6", fontSize:14, lineHeight:1.3, flexShrink:0 }}>•</span>
+                    <div key={li} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:7 }}>
+                      <span style={{ color:"#3b82f6", fontSize:16, lineHeight:1.4, flexShrink:0 }}>•</span>
                       <span style={{ flex:1, wordBreak:"break-word" }}>{line.trim()}</span>
                     </div>
                   ))}
