@@ -246,9 +246,13 @@ const handleMicrosoftLogin = () => {
 
   const [selectedMonitor, setSelectedMonitor] = useState("");
   const [selectedAlert, setSelectedAlert]     = useState("");
+  const [customAlertText, setCustomAlertText] = useState("");
 
-  // Computed alert options — depends on selectedMonitor state above
-  const alertOptions = alertOptionsByMonitor[selectedMonitor] ?? alertOptionsByMonitor["default"];
+  // Computed alert options — depends on selectedMonitor state above; always ends with "Others"
+  const alertOptions = [
+    ...(alertOptionsByMonitor[selectedMonitor] ?? alertOptionsByMonitor["default"]),
+    "Others",
+  ];
   const [alertComment, setAlertComment]       = useState("");
 
   // Alert date/time — default to now, user can override
@@ -511,6 +515,11 @@ const [adhocTask, setAdhocTask]           = useState("");
       showToast("Please select monitor and alert type", "warning");
       return;
     }
+    const alertTypeValue = selectedAlert === "Others" ? customAlertText.trim() : selectedAlert;
+    if (selectedAlert === "Others" && !alertTypeValue) {
+      showToast("Please describe the alert type", "warning");
+      return;
+    }
     if (!alertDate || !alertTime) {
       showToast("Please set the alert date and time", "warning");
       return;
@@ -522,7 +531,7 @@ const [adhocTask, setAdhocTask]           = useState("");
         body: JSON.stringify({
           shift_id:   shiftId,
           monitor:    selectedMonitor,
-          alert_type: selectedAlert,
+          alert_type: alertTypeValue,
           comment:    alertComment,
           alert_date: alertDate,
           alert_time: alertTime,
@@ -533,6 +542,7 @@ const [adhocTask, setAdhocTask]           = useState("");
       showToast("Alert logged successfully");
       setSelectedMonitor("");
       setSelectedAlert("");
+      setCustomAlertText("");
       setAlertComment("");
       const fresh = nowIST();
       setAlertDate(fresh.date);
@@ -1715,7 +1725,7 @@ const handleEndShift = async () => {
                   <label style={styles.label}>Alert Type</label>
                   <select
                     value={selectedAlert}
-                    onChange={(e) => setSelectedAlert(e.target.value)}
+                    onChange={(e) => { setSelectedAlert(e.target.value); setCustomAlertText(""); }}
                     className="ag-input"
                   >
                     <option value="">Select alert type…</option>
@@ -1723,6 +1733,17 @@ const handleEndShift = async () => {
                       <option key={i} value={a}>{a}</option>
                     ))}
                   </select>
+                  {selectedAlert === "Others" && (
+                    <input
+                      type="text"
+                      placeholder="Describe the alert type…"
+                      value={customAlertText}
+                      onChange={(e) => setCustomAlertText(e.target.value)}
+                      className="ag-input"
+                      style={{ marginTop: 8 }}
+                      autoFocus
+                    />
+                  )}
 
                   <label style={styles.label}>Alert Details</label>
                   <textarea
