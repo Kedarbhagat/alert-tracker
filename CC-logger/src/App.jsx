@@ -709,11 +709,7 @@ const handleEndShift = async () => {
         }}>
           {/* Logo */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:32 }}>
-            <div style={{ width:40, height:40, borderRadius:10, background:"rgba(37,99,235,0.15)", border:`1px solid rgba(37,99,235,0.3)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.accentLight} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-              </svg>
-            </div>
+            <img src="/p44-logo.svg" alt="p44" style={{ width:40, height:40, borderRadius:10 }} />
             <span style={{ fontSize:20, fontWeight:700, color:C.ink, letterSpacing:"-0.02em" }}>Alert Tracker</span>
           </div>
 
@@ -1555,11 +1551,7 @@ const handleEndShift = async () => {
           <div style={styles.header}>
             <div style={styles.headerLeft}>
               <div style={styles.headerIcon}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
+                <img src="/p44-logo.svg" alt="p44" style={{ width:32, height:32, borderRadius:7 }} />
               </div>
               <div>
                 <h2 style={styles.headerTitle}>Shift Dashboard</h2>
