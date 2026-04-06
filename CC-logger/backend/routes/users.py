@@ -1,0 +1,122 @@
+"""User management endpoints."""
+import uuid
+from flask import Blueprint, request, jsonify
+from db import db, to_ist
+
+users_bp = Blueprint("users", __name__, url_prefix="/manager")
+
+
+@users_bp.route("/auth/verify", methods=["POST", "OPTIONS"])
+def verify_user():
+    """POST /manager/auth/verify  { email: "user@project44.com" }
+       Returns the agent record if the email exists in the agents table."""
+    if request.method == "OPTIONS":
+        return "", 200
+    email = ((request.json or {}).get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+    try:
+        with db() as cur:
+            cur.execute(
+                "SELECT id::text, name, email, role FROM agents WHERE LOWER(email)=%s",
+                (email,)
+            )
+            row = cur.fetchone()
+        if not row:
+            return jsonify({"authorized": False, "error": "No account found for this email"}), 403
+        return jsonify({
+            "authorized": True,
+            "user": {"id": row[0], "name": row[1], "email": row[2], "role": row[3]}
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@users_bp.route("/users", methods=["GET", "OPTIONS"])
+def list_users():
+    if request.method == "OPTIONS": return "", 200
+    try:
+        with db() as cur:
+            cur.execute("""
+                SELECT a.id::text, a.name, a.email, a.role, a.created_at,
+                       COUNT(s.id),
+                       EXISTS(SELECT 1 FROM shifts WHERE agent_id::text=a.id::text AND logout_time IS NULL)
+                FROM agents a LEFT JOIN shifts s ON s.agent_id::text=a.id::text
+                GROUP BY a.id,a.name,a.email,a.role,a.created_at ORDER BY a.created_at DESC
+            """)
+            rows = cur.fetchall()
+        return jsonify({"users": [
+            {"id": r[0], "name": r[1], "email": r[2], "role": r[3],
+             "created_at": to_ist(r[4]), "total_shifts": int(r[5]), "is_active": bool(r[6])}
+            for r in rows
+        ]})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@users_bp.route("/users", methods=["POST", "OPTIONS"])
+def create_user():
+    if request.method == "OPTIONS": return "", 200
+    data  = request.json or {}
+    name  = (data.get("name")  or "").strip()
+    email = (data.get("email") or "").strip()
+    role  = (data.get("role")  or "agent").strip()
+    if not name:              return jsonify({"error": "name is required"}), 400
+    if not email:             return jsonify({"error": "email is required"}), 400
+    if len(name) > 120:       return jsonify({"error": "name must be 120 characters or fewer"}), 400
+    try:
+        with db() as cur:
+            cur.execute(
+                "INSERT INTO agents (name,email,role) VALUES (%s,%s,%s) RETURNING id::text,name,email,role,created_at",
+                (name, email, role)
+            )
+            r = cur.fetchone()
+        user = {"id": r[0], "name": r[1], "email": r[2], "role": r[3], "created_at": to_ist(r[4])}
+        print(f"✅ Agent created: {user['name']} ({user['email']}) UUID={user['id']}")
+        return jsonify({"message": "Agent created successfully", "user": user}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@users_bp.route("/users/<agent_id>", methods=["DELETE", "OPTIONS"])
+def delete_user(agent_id):
+    if request.method == "OPTIONS": return "", 200
+    try:
+        uuid.UUID(agent_id)
+    except (ValueError, AttributeError):
+        return jsonify({"error": "Invalid agent_id format"}), 400
+    try:
+        with db() as cur:
+            cur.execute("SELECT COUNT(*) FROM shifts WHERE agent_id=%s AND logout_time IS NULL", (agent_id,))
+            if cur.fetchone()[0] > 0:
+                return jsonify({"error": "Cannot delete an agent who is currently in an active shift"}), 409
+            cur.execute("SELECT name FROM agents WHERE id::text=%s", (agent_id,))
+            row = cur.fetchone()
+            if not row: return jsonify({"error": "Agent not found"}), 404
+
+            # Delete all shift-related history first (FKs from many tables point at shifts).
+            cur.execute("SELECT COUNT(*) FROM shifts WHERE agent_id=%s", (agent_id,))
+            total_shifts = int(cur.fetchone()[0] or 0)
+
+            for table in [
+                "tickets",
+                "alerts",
+                "incident_status",
+                "adhoc_tasks",
+                "handovers",
+                "maintenance_logs",
+                "dialpad_tickets",
+            ]:
+                cur.execute(
+                    f"DELETE FROM {table} WHERE shift_id IN (SELECT id FROM shifts WHERE agent_id=%s)",
+                    (agent_id,),
+                )
+
+            cur.execute("DELETE FROM shifts WHERE agent_id=%s", (agent_id,))
+            cur.execute("DELETE FROM agents WHERE id::text=%s", (agent_id,))
+        print(f"🗑️  Agent deleted: {row[0]} UUID={agent_id}")
+        if total_shifts > 0:
+            return jsonify({"message": f"Agent '{row[0]}' deleted successfully (removed {total_shifts} shift(s) of history)"})
+        return jsonify({"message": f"Agent '{row[0]}' deleted successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
