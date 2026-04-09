@@ -754,6 +754,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
     monitor_analysis     = [],
     shift_duration_stats = {},
     incident_pattern     = [],
+    ticket_volume        = [],
     dialpad_volume       = [],
     agent_consistency    = [],
     peak_hour            = null,
@@ -768,6 +769,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const totalAlerts    = alert_analysis.reduce((s,a)=>s+(Number(a.count)||0),0);
   const totalIncidents = incident_pattern.reduce((s,i)=>s+(Number(i.count)||0),0);
   const totalDialpad   = dialpad_volume.reduce((s,d)=>s+(Number(d.count)||0),0);
+  const totalTickets   = ticket_volume.reduce((s,d)=>s+(Number(d.count)||0),0);
 
   /* ── Performance trend ── */
   const trendLabels = performance_trends.map(d=>d.date?.slice(5)||"");
@@ -776,13 +778,14 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const agentsVals  = performance_trends.map(d=>Number(d.agents)||0);
 
   /* ── Volume trend (tickets + incidents + dialpad merged) ── */
-  const volDates = [...new Set([...incident_pattern,...dialpad_volume].map(d=>d.date).filter(Boolean))].sort();
+  const volDates   = [...new Set([...incident_pattern,...dialpad_volume,...ticket_volume].map(d=>d.date).filter(Boolean))].sort();
   const incVals    = volDates.map(d=>{const f=incident_pattern.find(x=>x.date===d);return f?Number(f.count)||0:0;});
   const dialpadVals= volDates.map(d=>{const f=dialpad_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
+  const ticketVals = volDates.map(d=>{const f=ticket_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
 
   /* ── Donuts ── */
   const alertDonut = alert_analysis.slice(0,8).map(a=>({label:a.alert_type||"Unknown",value:Number(a.count)||0}));
-  const volDonut   = [{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText},{label:"Dialpad",value:totalDialpad,color:C.accentLight}].filter(d=>d.value>0);
+  const volDonut   = [{label:"ZD Tickets",value:totalTickets,color:C.amberText},{label:"Incidents",value:totalIncidents,color:"#a78bfa"},{label:"Alerts",value:totalAlerts,color:C.redText},{label:"Dialpad",value:totalDialpad,color:C.accentLight}].filter(d=>d.value>0);
 
   /* ── Agent table ── */
   const agentTable = agent_rankings.map(a => {
@@ -940,7 +943,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
             <Panel>
               <PanelTitle>Tickets vs Incidents vs Dialpad — Daily</PanelTitle>
               <div style={{ display:"flex",gap:16,marginBottom:10 }}>
-                {[{label:"Incidents",color:"#a78bfa"},{label:"Dialpad",color:C.accentLight}].map(l=>(
+                {[{label:"ZD Tickets",color:C.amberText},{label:"Incidents",color:"#a78bfa"},{label:"Dialpad",color:C.accentLight}].map(l=>(
                   <div key={l.label} style={{ display:"flex",alignItems:"center",gap:5 }}>
                     <div style={{ width:14,height:2,background:l.color,borderRadius:2 }} />
                     <span style={{ fontSize:11,color:C.inkMid,fontFamily:"'Inter',sans-serif" }}>{l.label}</span>
@@ -950,8 +953,9 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
               {volDates.length>0
                 ? <LineAreaChart
                     datasets={[
-                      {name:"Incidents",   values:incVals,    color:"#a78bfa"},
-                      {name:"Dialpad",     values:dialpadVals,color:C.accentLight},
+                      {name:"ZD Tickets", values:ticketVals,  color:C.amberText},
+                      {name:"Incidents",  values:incVals,     color:"#a78bfa"},
+                      {name:"Dialpad",    values:dialpadVals, color:C.accentLight},
                     ]}
                     labels={volDates.map(d=>d?.slice(5)||"")}
                     height={180}

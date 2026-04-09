@@ -213,20 +213,41 @@ def get_advanced_analytics():
                  "shift_count": r[2], "total_triaged": int(r[3] or 0), "avg_triaged": round(float(r[4] or 0), 2),
                  "productivity_rate": round(float(r[5] or 0), 2), "total_tickets": int(r[6] or 0),
                  "total_alerts": int(r[7] or 0), "total_incidents": int(r[8] or 0), "total_adhoc": int(r[9] or 0),
-                 "avg_shift_hours": round(float(r[10] or 0), 2), "total_zd_tickets": int(r[11] or 0)}
+                 "avg_shift_hours": round(float(r[10] or 0), 2), "total_zd_tickets": int(r[11] or 0),
+                 "total_dialpad": int(r[12] or 0)}
                 for i, r in enumerate(rows("""
-                    SELECT s.agent_id,COALESCE(ag.name,'Unknown Agent'),COUNT(DISTINCT s.id),
-                           COALESCE(SUM(s.triaged_count),0),COALESCE(AVG(s.triaged_count),0),
+                    SELECT s.agent_id, COALESCE(ag.name,'Unknown Agent'),
+                           COUNT(s.id),
+                           COALESCE(SUM(s.triaged_count),0),
+                           COALESCE(AVG(s.triaged_count),0),
                            COALESCE(AVG(s.triaged_count/NULLIF(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,0)),0),
-                           COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id),
+                           COALESCE(SUM(s.ticket_cnt),0),
+                           COALESCE(SUM(s.alert_cnt),0),
+                           COALESCE(SUM(s.incident_cnt),0),
+                           COALESCE(SUM(s.adhoc_cnt),0),
                            COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0),
-                           COALESCE(SUM(s.zd_ticket_count),0)
-                    FROM shifts s
-                    LEFT JOIN tickets t ON t.shift_id=s.id LEFT JOIN alerts a ON a.shift_id=s.id
-                    LEFT JOIN incident_status i ON i.shift_id=s.id LEFT JOIN adhoc_tasks ad ON ad.shift_id=s.id
+                           COALESCE(SUM(s.zd_ticket_count),0),
+                           COALESCE(SUM(s.dialpad_cnt),0)
+                    FROM (
+                        SELECT sh.id, sh.agent_id, sh.triaged_count, sh.zd_ticket_count,
+                               sh.logout_time, sh.login_time,
+                               COUNT(DISTINCT t.id)  AS ticket_cnt,
+                               COUNT(DISTINCT a.id)  AS alert_cnt,
+                               COUNT(DISTINCT i.id)  AS incident_cnt,
+                               COUNT(DISTINCT ad.id) AS adhoc_cnt,
+                               COUNT(DISTINCT dp.id) AS dialpad_cnt
+                        FROM shifts sh
+                        LEFT JOIN tickets t        ON t.shift_id  = sh.id
+                        LEFT JOIN alerts a         ON a.shift_id  = sh.id
+                        LEFT JOIN incident_status i ON i.shift_id = sh.id
+                        LEFT JOIN adhoc_tasks ad   ON ad.shift_id = sh.id
+                        LEFT JOIN dialpad_tickets dp ON dp.shift_id = sh.id
+                        WHERE sh.login_time>=%s AND sh.login_time<=%s
+                        GROUP BY sh.id, sh.agent_id, sh.triaged_count, sh.zd_ticket_count,
+                                 sh.logout_time, sh.login_time
+                    ) s
                     LEFT JOIN agents ag ON ag.id=s.agent_id
-                    WHERE s.login_time>=%s AND s.login_time<=%s
-                    GROUP BY s.agent_id,ag.name HAVING COUNT(DISTINCT s.id)>=1 ORDER BY 6 DESC
+                    GROUP BY s.agent_id, ag.name HAVING COUNT(s.id)>=1 ORDER BY 6 DESC
                 """))
             ]
             hourly_distribution = [
@@ -250,6 +271,7 @@ def get_advanced_analytics():
             prod_rows = rows("SELECT triaged_count,EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600 FROM shifts WHERE login_time>=%s AND login_time<=%s AND EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600>0.5")
             incident_pattern = [{"date": str(r[0]), "count": r[1]} for r in rows("SELECT DATE(created_at),COUNT(*) FROM incident_status WHERE created_at>=%s AND created_at<=%s GROUP BY 1 ORDER BY 1")]
             ticket_volume    = [{"date": str(r[0]), "count": r[1]} for r in rows("SELECT DATE(created_at),COUNT(*) FROM tickets WHERE created_at>=%s AND created_at<=%s GROUP BY 1 ORDER BY 1")]
+            dialpad_volume   = [{"date": str(r[0]), "count": r[1]} for r in rows("SELECT DATE(d.created_at),COUNT(*) FROM dialpad_tickets d WHERE d.created_at>=%s AND d.created_at<=%s GROUP BY 1 ORDER BY 1")]
             coverage_analysis = [
                 {"hour": int(r[0]), "avg_agents": round(float(r[1] or 0), 2)}
                 for r in rows("SELECT hour,AVG(agents_in_slot) FROM (SELECT EXTRACT(HOUR FROM login_time)::int AS hour,COUNT(DISTINCT agent_id) AS agents_in_slot FROM shifts WHERE login_time>=%s AND login_time<=%s GROUP BY DATE_TRUNC('hour',login_time),EXTRACT(HOUR FROM login_time)) h GROUP BY hour ORDER BY hour")
@@ -293,7 +315,7 @@ def get_advanced_analytics():
             "hourly_distribution": hourly_distribution, "daily_distribution": daily_distribution,
             "alert_analysis": alert_analysis, "monitor_analysis": monitor_analysis,
             "shift_duration_stats": _describe(durations), "productivity_stats": _describe(rates),
-            "incident_pattern": incident_pattern, "ticket_volume": ticket_volume,
+            "incident_pattern": incident_pattern, "ticket_volume": ticket_volume, "dialpad_volume": dialpad_volume,
             "agent_consistency": agent_consistency, "peak_hour": peak_hour,
             "coverage_analysis": coverage_analysis, "insights": insights,
         })
@@ -326,32 +348,56 @@ def get_agent_detail(agent_id):
             monitor_breakdown = [{"monitor": r[0], "count": r[1]} for r in cur.fetchall()]
 
             cur.execute("""
-                SELECT s.id,DATE(s.login_time),EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,
-                       s.triaged_count,COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id),
-                       COALESCE(s.zd_ticket_count,0)
-                FROM shifts s
-                LEFT JOIN tickets t ON t.shift_id=s.id LEFT JOIN alerts a ON a.shift_id=s.id
-                LEFT JOIN incident_status i ON i.shift_id=s.id LEFT JOIN adhoc_tasks ad ON ad.shift_id=s.id
-                WHERE s.agent_id=%s AND s.login_time>=%s AND s.login_time<=%s
-                GROUP BY s.id,s.login_time,s.logout_time,s.triaged_count,s.zd_ticket_count ORDER BY s.login_time DESC LIMIT 10
+                SELECT s.id, DATE(s.login_time),
+                       EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,
+                       s.triaged_count, s.ticket_cnt, s.alert_cnt, s.incident_cnt, s.adhoc_cnt,
+                       s.zd_ticket_count, s.dialpad_cnt
+                FROM (
+                    SELECT sh.id, sh.login_time, sh.logout_time, sh.triaged_count, sh.zd_ticket_count,
+                           COUNT(DISTINCT t.id)   AS ticket_cnt,
+                           COUNT(DISTINCT a.id)   AS alert_cnt,
+                           COUNT(DISTINCT i.id)   AS incident_cnt,
+                           COUNT(DISTINCT ad.id)  AS adhoc_cnt,
+                           COUNT(DISTINCT dp.id)  AS dialpad_cnt
+                    FROM shifts sh
+                    LEFT JOIN tickets t          ON t.shift_id  = sh.id
+                    LEFT JOIN alerts a            ON a.shift_id  = sh.id
+                    LEFT JOIN incident_status i   ON i.shift_id  = sh.id
+                    LEFT JOIN adhoc_tasks ad      ON ad.shift_id = sh.id
+                    LEFT JOIN dialpad_tickets dp  ON dp.shift_id = sh.id
+                    WHERE sh.agent_id=%s AND sh.login_time>=%s AND sh.login_time<=%s
+                    GROUP BY sh.id, sh.login_time, sh.logout_time, sh.triaged_count, sh.zd_ticket_count
+                ) s
+                ORDER BY s.login_time DESC LIMIT 10
             """, p)
             recent_shifts = [
                 {"id": str(r[0]), "date": str(r[1]), "duration_hours": round(float(r[2] or 0), 2),
                  "triaged_count": r[3] or 0, "ticket_count": int(r[4] or 0),
                  "alert_count": int(r[5] or 0), "incident_count": int(r[6] or 0), "adhoc_count": int(r[7] or 0),
-                 "zd_ticket_count": int(r[8] or 0)}
+                 "zd_ticket_count": int(r[8] or 0), "dialpad_count": int(r[9] or 0)}
                 for r in cur.fetchall()
             ]
             cur.execute("""
-                SELECT COUNT(DISTINCT s.id),COALESCE(SUM(s.triaged_count),0),
-                       COUNT(DISTINCT t.id),COUNT(DISTINCT a.id),COUNT(DISTINCT i.id),COUNT(DISTINCT ad.id),
+                SELECT COUNT(s.id), COALESCE(SUM(s.triaged_count),0),
+                       COALESCE(SUM(s.ticket_cnt),0), COALESCE(SUM(s.alert_cnt),0),
+                       COALESCE(SUM(s.incident_cnt),0), COALESCE(SUM(s.adhoc_cnt),0),
                        COALESCE(AVG(s.triaged_count),0),
                        COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0),
                        COALESCE(SUM(s.zd_ticket_count),0)
-                FROM shifts s
-                LEFT JOIN tickets t ON t.shift_id=s.id LEFT JOIN alerts a ON a.shift_id=s.id
-                LEFT JOIN incident_status i ON i.shift_id=s.id LEFT JOIN adhoc_tasks ad ON ad.shift_id=s.id
-                WHERE s.agent_id=%s AND s.login_time>=%s AND s.login_time<=%s
+                FROM (
+                    SELECT sh.id, sh.triaged_count, sh.zd_ticket_count, sh.logout_time, sh.login_time,
+                           COUNT(DISTINCT t.id)  AS ticket_cnt,
+                           COUNT(DISTINCT a.id)  AS alert_cnt,
+                           COUNT(DISTINCT i.id)  AS incident_cnt,
+                           COUNT(DISTINCT ad.id) AS adhoc_cnt
+                    FROM shifts sh
+                    LEFT JOIN tickets t          ON t.shift_id  = sh.id
+                    LEFT JOIN alerts a            ON a.shift_id  = sh.id
+                    LEFT JOIN incident_status i   ON i.shift_id  = sh.id
+                    LEFT JOIN adhoc_tasks ad      ON ad.shift_id = sh.id
+                    WHERE sh.agent_id=%s AND sh.login_time>=%s AND sh.login_time<=%s
+                    GROUP BY sh.id, sh.triaged_count, sh.zd_ticket_count, sh.logout_time, sh.login_time
+                ) s
             """, p)
             k = cur.fetchone()
 

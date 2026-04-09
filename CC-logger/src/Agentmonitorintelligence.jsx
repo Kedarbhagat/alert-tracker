@@ -721,7 +721,7 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                     <div style={{ borderRadius:8, overflow:"hidden", border:`1px solid ${C.border}` }}>
                       <table style={{ width:"100%", borderCollapse:"collapse" }}>
                         <thead className="ami-thead">
-                          <tr>{["Date","Duration","Triaged","Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
+                          <tr>{["Date","Duration","Triaged","ZD Tickets","Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
                         </thead>
                         <tbody className="ami-tbody">
                           {data.recent_shifts.map((s, i) => (
@@ -729,6 +729,7 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                               <td style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:C.inkMid }}>{s.date}</td>
                               <td style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>{fmtHours(s.duration_hours)}</td>
                               <td style={{ fontWeight:600, color:C.greenText }}>{s.triaged_count??0}</td>
+                              <td style={{ color:"#818cf8", fontWeight:600 }}>{s.zd_ticket_count??0}</td>
                               <td style={{ color:C.amberText }}>{s.ticket_count??0}</td>
                               <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                               <td style={{ color:C.purple }}>{s.incident_count??0}</td>
@@ -882,6 +883,7 @@ export default function AgentMonitorIntelligence({ api }) {
 
   const SORT_OPTS = [
     { value:"total_triaged",     label:"Cases Triaged"    },
+    { value:"total_zd_tickets",  label:"ZD Tickets"       },
     { value:"total_alerts",      label:"Alerts"           },
     { value:"shift_count",       label:"Shift Count"      },
   ];
@@ -971,12 +973,13 @@ export default function AgentMonitorIntelligence({ api }) {
                 
                         </div>
 
-                        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8, marginBottom:14 }}>
                           {[
-                            { label:"Triaged",   value:agent.total_triaged,   color:C.greenText },
-                            { label:"Alerts",    value:agent.total_alerts,    color:C.redText   },
-                            { label:"Incidents", value:agent.total_incidents, color:C.purple    },
-                            { label:"Dialpad",   value:agent.total_dialpad,   color:C.accentLight },
+                            { label:"Triaged",    value:agent.total_triaged,    color:C.greenText   },
+                            { label:"ZD Tickets", value:agent.total_zd_tickets, color:"#818cf8"     },
+                            { label:"Alerts",     value:agent.total_alerts,     color:C.redText     },
+                            { label:"Incidents",  value:agent.total_incidents,  color:C.purple      },
+                            { label:"Dialpad",    value:agent.total_dialpad,    color:C.accentLight },
                           ].map(s => (
                             <div key={s.label} style={{ textAlign:"center", padding:"8px 4px", background:C.raised, borderRadius:6 }}>
                               <div style={{ fontSize:18, fontWeight:700, color:s.color, fontFamily:"'Inter',sans-serif", lineHeight:1 }}>{s.value??0}</div>
@@ -998,14 +1001,14 @@ export default function AgentMonitorIntelligence({ api }) {
                 <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${C.border}` }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead className="ami-thead">
-                      <tr>{["Rank","Agent","Shifts","Triaged","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
+                      <tr>{["Rank","Agent","Shifts","Triaged","ZD Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody className="ami-tbody">
                       {filtered.map((a, i) => {
                         const color = PALETTE[a._idx % PALETTE.length];
                         return (
                           <tr key={a.agent_id} style={{ animation:`ami-rise .25s ${i*0.03}s both` }}>
-                            <td style={{ color:C.inkMid, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>#{a.rank}</td>
+                            <td style={{ color:C.inkMid, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>#{i+1}</td>
                             <td>
                               <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                                 <div style={{ width:26, height:26, borderRadius:"50%", background:color+"22", border:`1.5px solid ${color}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color, flexShrink:0, fontFamily:"'Inter',sans-serif" }}>
@@ -1016,6 +1019,7 @@ export default function AgentMonitorIntelligence({ api }) {
                             </td>
                             <td style={{ color:C.inkMid, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>{a.shift_count}</td>
                             <td style={{ fontWeight:600, color:C.greenText }}>{a.total_triaged}</td>
+                            <td style={{ color:"#818cf8", fontWeight:600 }}>{a.total_zd_tickets??0}</td>
                             <td style={{ color:C.redText }}>{a.total_alerts}</td>
                             <td style={{ color:C.purple }}>{a.total_incidents}</td>
                             <td style={{ color:C.indigo }}>{a.total_adhoc}</td>
