@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd shift-tracker-frontend/backend
+          cd CC-logger/backend
           python -m venv antenv
           source antenv/bin/activate
           pip install -r requirements.txt
@@ -32,8 +32,8 @@ jobs:
         with:
           name: python-app
           path: |
-            shift-tracker-frontend/backend/
-            !shift-tracker-frontend/backend/antenv/
+            CC-logger/backend/
+            !CC-logger/backend/antenv/
 
   deploy:
     runs-on: ubuntu-latest
