@@ -597,7 +597,7 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
             <div style={{ fontSize:10,color:C.inkMid,textTransform:"uppercase",letterSpacing:".1em",fontFamily:"'Inter',sans-serif",fontWeight:700,marginBottom:10 }}>Recent Shifts</div>
             <table style={{ width:"100%",borderCollapse:"collapse" }}>
               <thead className="aa-thead">
-                <tr><th>Date</th><th>Duration</th><th>Triaged</th><th>ZD Tickets</th><th>Tickets</th><th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th></tr>
+                <tr><th>Date</th><th>Duration</th><th>Triaged</th><th>ZD Tickets</th><th>Alerts</th><th>Incidents</th><th>Ad-hoc</th><th>Dialpad</th></tr>
               </thead>
               <tbody className="aa-tbody">
                 {recentShifts.map((s,i)=>(
@@ -606,7 +606,6 @@ function AgentDetailPanel({ agent, onClose, detailLoading = false, onChangeDurat
                     <td style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11 }}>{s.duration_hours?`${s.duration_hours}h`:"—"}</td>
                     <td style={{ color:C.accentLight }}>{s.triaged_count??0}</td>
                     <td style={{ color:"#818cf8",fontWeight:600 }}>{s.zd_ticket_count??0}</td>
-                    <td style={{ color:C.amberText }}>{s.ticket_count??0}</td>
                     <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                     <td style={{ color:"#a78bfa" }}>{s.incident_count??0}</td>
                     <td style={{ color:C.inkMid }}>{s.adhoc_count??0}</td>

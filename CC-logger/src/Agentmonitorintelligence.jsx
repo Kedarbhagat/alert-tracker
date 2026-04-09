@@ -721,7 +721,7 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                     <div style={{ borderRadius:8, overflow:"hidden", border:`1px solid ${C.border}` }}>
                       <table style={{ width:"100%", borderCollapse:"collapse" }}>
                         <thead className="ami-thead">
-                          <tr>{["Date","Duration","Triaged","ZD Tickets","Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
+                          <tr>{["Date","Duration","Triaged","ZD Tickets","Alerts","Incidents","Ad-hoc","Dialpad",""].map(h=><th key={h}>{h}</th>)}</tr>
                         </thead>
                         <tbody className="ami-tbody">
                           {data.recent_shifts.map((s, i) => (
@@ -730,7 +730,6 @@ function AgentDetailPanel({ agent, api, days, refreshKey = 0, onBack }) {
                               <td style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>{fmtHours(s.duration_hours)}</td>
                               <td style={{ fontWeight:600, color:C.greenText }}>{s.triaged_count??0}</td>
                               <td style={{ color:"#818cf8", fontWeight:600 }}>{s.zd_ticket_count??0}</td>
-                              <td style={{ color:C.amberText }}>{s.ticket_count??0}</td>
                               <td style={{ color:C.redText }}>{s.alert_count??0}</td>
                               <td style={{ color:C.purple }}>{s.incident_count??0}</td>
                               <td style={{ color:C.indigo }}>{s.adhoc_count??0}</td>
