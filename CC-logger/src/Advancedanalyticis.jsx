@@ -753,7 +753,6 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
     monitor_analysis     = [],
     shift_duration_stats = {},
     incident_pattern     = [],
-    ticket_volume        = [],
     dialpad_volume       = [],
     agent_consistency    = [],
     peak_hour            = null,
@@ -768,7 +767,7 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const totalAlerts    = alert_analysis.reduce((s,a)=>s+(Number(a.count)||0),0);
   const totalIncidents = incident_pattern.reduce((s,i)=>s+(Number(i.count)||0),0);
   const totalDialpad   = dialpad_volume.reduce((s,d)=>s+(Number(d.count)||0),0);
-  const totalTickets   = ticket_volume.reduce((s,d)=>s+(Number(d.count)||0),0);
+  const totalTickets   = performance_trends.reduce((s,d)=>s+(Number(d.total_zd_tickets)||0),0);
 
   /* ── Performance trend ── */
   const trendLabels = performance_trends.map(d=>d.date?.slice(5)||"");
@@ -776,11 +775,11 @@ export default function AdvancedAnalytics({ data, loading, error, onRefresh, api
   const shiftsVals  = performance_trends.map(d=>Number(d.shifts)||0);
   const agentsVals  = performance_trends.map(d=>Number(d.agents)||0);
 
-  /* ── Volume trend (tickets + incidents + dialpad merged) ── */
-  const volDates   = [...new Set([...incident_pattern,...dialpad_volume,...ticket_volume].map(d=>d.date).filter(Boolean))].sort();
+  /* ── Volume trend (zd_tickets from shifts + incidents + dialpad merged) ── */
+  const volDates   = [...new Set([...incident_pattern,...dialpad_volume,...performance_trends].map(d=>d.date).filter(Boolean))].sort();
   const incVals    = volDates.map(d=>{const f=incident_pattern.find(x=>x.date===d);return f?Number(f.count)||0:0;});
   const dialpadVals= volDates.map(d=>{const f=dialpad_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
-  const ticketVals = volDates.map(d=>{const f=ticket_volume.find(x=>x.date===d);return f?Number(f.count)||0:0;});
+  const ticketVals = volDates.map(d=>{const f=performance_trends.find(x=>x.date===d);return f?Number(f.total_zd_tickets)||0:0;});
 
   /* ── Donuts ── */
   const alertDonut = alert_analysis.slice(0,8).map(a=>({label:a.alert_type||"Unknown",value:Number(a.count)||0}));

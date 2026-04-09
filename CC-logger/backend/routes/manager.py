@@ -185,7 +185,7 @@ def get_shift_details(shift_id):
         return jsonify({
             "agent_id": str(s[0]), "agent_name": s[4],
             "login_time": to_ist(s[1]), "logout_time": to_ist(s[2]),
-            "triaged_count": s[3] or 0, "zd_ticket_count": int(s[5] or 0), **acts,
+            "triaged_count": s[3] or 0, "zd_ticket_count": len(acts["tickets"]), **acts,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
