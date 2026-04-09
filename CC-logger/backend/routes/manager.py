@@ -91,14 +91,17 @@ def get_shifts():
     sql = """
         SELECT s.id, s.agent_id, s.login_time, s.logout_time, s.triaged_count,
                EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,
-               COALESCE(ag.name,'Unknown Agent'), COALESCE(s.zd_ticket_count,0)
-        FROM shifts s LEFT JOIN agents ag ON s.agent_id=ag.id WHERE 1=1
+               COALESCE(ag.name,'Unknown Agent'), COUNT(DISTINCT t.id)
+        FROM shifts s
+        LEFT JOIN agents ag ON s.agent_id=ag.id
+        LEFT JOIN tickets t ON t.shift_id=s.id
+        WHERE 1=1
     """
     params = []
     if start:  sql += " AND s.login_time >= %s"; params.append(start)
     if end:    sql += " AND s.login_time <= %s"; params.append(end + " 23:59:59")
     if name:   sql += " AND ag.name ILIKE %s";  params.append(f"%{name}%")
-    sql += " ORDER BY s.login_time DESC LIMIT 1000"
+    sql += " GROUP BY s.id, s.agent_id, s.login_time, s.logout_time, s.triaged_count, ag.name ORDER BY s.login_time DESC LIMIT 1000"
     try:
         with db() as cur:
             cur.execute(sql, params); rows = cur.fetchall()
@@ -230,7 +233,7 @@ def get_advanced_analytics():
                            COALESCE(SUM(s.incident_cnt),0),
                            COALESCE(SUM(s.adhoc_cnt),0),
                            COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0),
-                           COALESCE(SUM(s.zd_ticket_count),0),
+                           COALESCE(SUM(s.ticket_cnt),0),
                            COALESCE(SUM(s.dialpad_cnt),0)
                     FROM (
                         SELECT sh.id, sh.agent_id, sh.triaged_count, sh.zd_ticket_count,
@@ -355,7 +358,7 @@ def get_agent_detail(agent_id):
                 SELECT s.id, DATE(s.login_time),
                        EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600,
                        s.triaged_count, s.ticket_cnt, s.alert_cnt, s.incident_cnt, s.adhoc_cnt,
-                       s.zd_ticket_count, s.dialpad_cnt
+                       s.ticket_cnt, s.dialpad_cnt
                 FROM (
                     SELECT sh.id, sh.login_time, sh.logout_time, sh.triaged_count, sh.zd_ticket_count,
                            COUNT(DISTINCT t.id)   AS ticket_cnt,
@@ -387,7 +390,7 @@ def get_agent_detail(agent_id):
                        COALESCE(SUM(s.incident_cnt),0), COALESCE(SUM(s.adhoc_cnt),0),
                        COALESCE(AVG(s.triaged_count),0),
                        COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.logout_time,NOW())-s.login_time))/3600),0),
-                       COALESCE(SUM(s.zd_ticket_count),0)
+                       COALESCE(SUM(s.ticket_cnt),0)
                 FROM (
                     SELECT sh.id, sh.triaged_count, sh.zd_ticket_count, sh.logout_time, sh.login_time,
                            COUNT(DISTINCT t.id)  AS ticket_cnt,
