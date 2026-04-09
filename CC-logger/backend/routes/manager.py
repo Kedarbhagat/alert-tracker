@@ -65,9 +65,13 @@ def get_active_agents():
             cur.execute("""
                 SELECT s.id, s.agent_id, s.login_time, s.triaged_count,
                        EXTRACT(EPOCH FROM (NOW()-s.login_time))/3600,
-                       COALESCE(ag.name,'Unknown Agent'), COALESCE(s.zd_ticket_count,0)
-                FROM shifts s LEFT JOIN agents ag ON s.agent_id=ag.id
-                WHERE s.logout_time IS NULL ORDER BY s.login_time DESC
+                       COALESCE(ag.name,'Unknown Agent'), COUNT(DISTINCT t.id)
+                FROM shifts s
+                LEFT JOIN agents ag ON s.agent_id=ag.id
+                LEFT JOIN tickets t ON t.shift_id=s.id
+                WHERE s.logout_time IS NULL
+                GROUP BY s.id, s.agent_id, s.login_time, s.triaged_count, ag.name
+                ORDER BY s.login_time DESC
             """)
             rows = cur.fetchall()
         return jsonify({"active_agents": [
