@@ -99,6 +99,11 @@ def start_shift():
     if not agent_id: return jsonify({"error": "agent_id is required"}), 400
     try:
         with db() as cur:
+            # Return existing active shift if one already exists
+            cur.execute("SELECT id, triaged_count FROM shifts WHERE agent_id=%s AND logout_time IS NULL ORDER BY login_time DESC LIMIT 1", (agent_id,))
+            existing = cur.fetchone()
+            if existing:
+                return jsonify({"shift_id": existing[0], "triaged_count": existing[1] or 0, "resumed": True})
             cur.execute("INSERT INTO shifts (agent_id) VALUES (%s) RETURNING id", (agent_id,))
             shift_id = cur.fetchone()[0]
         return jsonify({"shift_id": shift_id, "triaged_count": 0})
