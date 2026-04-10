@@ -124,9 +124,9 @@ def get_analytics():
             def s(sql): cur.execute(sql); return cur.fetchone()[0]
             def r(sql): cur.execute(sql); return cur.fetchone()
             active        = s("SELECT COUNT(*) FROM shifts WHERE logout_time IS NULL")
-            today         = r("SELECT COUNT(DISTINCT sh.agent_id),COUNT(DISTINCT sh.id),COALESCE(SUM(sh.triaged_count),0),COUNT(DISTINCT t.id) FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE DATE(sh.login_time)=CURRENT_DATE")
-            week          = r("SELECT COUNT(DISTINCT sh.agent_id),COUNT(DISTINCT sh.id),COALESCE(SUM(sh.triaged_count),0),COUNT(DISTINCT t.id) FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE sh.login_time>=DATE_TRUNC('week',CURRENT_DATE)")
-            month         = r("SELECT COUNT(DISTINCT sh.agent_id),COUNT(DISTINCT sh.id),COALESCE(SUM(sh.triaged_count),0),COUNT(DISTINCT t.id) FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE sh.login_time>=DATE_TRUNC('month',CURRENT_DATE)")
+            today         = r("SELECT COUNT(DISTINCT s.agent_id),COUNT(DISTINCT s.id),COALESCE(SUM(s.triaged_count),0),COALESCE(SUM(s.tcnt),0) FROM (SELECT sh.id,sh.agent_id,sh.triaged_count,COUNT(DISTINCT t.id) AS tcnt FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE DATE(sh.login_time)=CURRENT_DATE GROUP BY sh.id,sh.agent_id,sh.triaged_count) s")
+            week          = r("SELECT COUNT(DISTINCT s.agent_id),COUNT(DISTINCT s.id),COALESCE(SUM(s.triaged_count),0),COALESCE(SUM(s.tcnt),0) FROM (SELECT sh.id,sh.agent_id,sh.triaged_count,COUNT(DISTINCT t.id) AS tcnt FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE sh.login_time>=DATE_TRUNC('week',CURRENT_DATE) GROUP BY sh.id,sh.agent_id,sh.triaged_count) s")
+            month         = r("SELECT COUNT(DISTINCT s.agent_id),COUNT(DISTINCT s.id),COALESCE(SUM(s.triaged_count),0),COALESCE(SUM(s.tcnt),0) FROM (SELECT sh.id,sh.agent_id,sh.triaged_count,COUNT(DISTINCT t.id) AS tcnt FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE sh.login_time>=DATE_TRUNC('month',CURRENT_DATE) GROUP BY sh.id,sh.agent_id,sh.triaged_count) s")
             avg_p         = s("SELECT AVG(triaged_count/NULLIF(EXTRACT(EPOCH FROM (COALESCE(logout_time,NOW())-login_time))/3600,0)) FROM shifts WHERE logout_time IS NOT NULL AND EXTRACT(EPOCH FROM (logout_time-login_time))/3600>0.5 AND login_time>=CURRENT_DATE-INTERVAL '30 days'")
             alerts        = s("SELECT COUNT(*) FROM alerts WHERE DATE(created_at)=CURRENT_DATE")
             tickets       = s("SELECT COUNT(*) FROM tickets WHERE DATE(created_at)=CURRENT_DATE")
@@ -213,7 +213,20 @@ def get_advanced_analytics():
 
             performance_trends = [
                 {"date": str(r[0]), "agents": r[1], "shifts": r[2], "total_triaged": r[3] or 0, "avg_triaged": round(float(r[4] or 0), 2), "total_zd_tickets": int(r[5] or 0)}
-                for r in rows("SELECT DATE(sh.login_time),COUNT(DISTINCT sh.agent_id),COUNT(DISTINCT sh.id),COALESCE(SUM(sh.triaged_count),0),COALESCE(AVG(sh.triaged_count),0),COUNT(DISTINCT t.id) FROM shifts sh LEFT JOIN tickets t ON t.shift_id=sh.id WHERE sh.login_time>=%s AND sh.login_time<=%s GROUP BY DATE(sh.login_time) ORDER BY 1")
+                for r in rows("""
+                    SELECT s.day, COUNT(DISTINCT s.agent_id), COUNT(DISTINCT s.id),
+                           COALESCE(SUM(s.triaged_count),0), COALESCE(AVG(s.triaged_count),0),
+                           COALESCE(SUM(s.ticket_cnt),0)
+                    FROM (
+                        SELECT sh.id, sh.agent_id, DATE(sh.login_time) AS day,
+                               sh.triaged_count, COUNT(DISTINCT t.id) AS ticket_cnt
+                        FROM shifts sh
+                        LEFT JOIN tickets t ON t.shift_id=sh.id
+                        WHERE sh.login_time>=%s AND sh.login_time<=%s
+                        GROUP BY sh.id, sh.agent_id, sh.login_time, sh.triaged_count
+                    ) s
+                    GROUP BY s.day ORDER BY 1
+                """)
             ]
             agent_rankings = [
                 {"rank": i+1, "agent_id": str(r[0]), "agent_name": r[1],
